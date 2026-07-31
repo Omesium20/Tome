@@ -27,6 +27,8 @@ export function DeckToolbar({
   onGenerate,
   onAdd,
   onClear,
+  panelOpen,
+  onTogglePanel,
 }: {
   deckCount: number;
   deckCardIds: Set<string>;
@@ -37,6 +39,8 @@ export function DeckToolbar({
   onGenerate: () => void;
   onAdd: (card: Card) => void;
   onClear: () => void;
+  panelOpen: boolean;
+  onTogglePanel: () => void;
 }) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<Card[]>([]);
@@ -162,6 +166,25 @@ export function DeckToolbar({
             </ul>
           )}
         </div>
+
+        <button
+          type="button"
+          onClick={onTogglePanel}
+          aria-pressed={panelOpen}
+          aria-label="Toggle collection panel"
+          title="Show your collection to drag cards into the deck"
+          className={`flex h-10 cursor-pointer items-center gap-2 rounded-lg border px-3 text-sm font-medium transition-colors duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-action ${
+            panelOpen
+              ? "border-action bg-action/15 text-ink"
+              : "border-line bg-panel text-ink-muted hover:border-ink-muted hover:text-ink"
+          }`}
+        >
+          <svg viewBox="0 0 16 16" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden="true">
+            <rect x="1.5" y="2.5" width="13" height="11" rx="1.5" />
+            <path d="M10 2.5v11" />
+          </svg>
+          Collection
+        </button>
 
         <span className={`text-sm font-medium tabular-nums ${countClass}`} aria-live="polite">
           {deckCount} / 100

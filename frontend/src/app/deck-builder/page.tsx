@@ -7,6 +7,10 @@ import { compareRoles, getPrimaryRole } from "@/lib/mock/metadata";
 import { DeckToolbar } from "@/components/deck-builder/DeckToolbar";
 import { DeckColumn, type DeckEntry } from "@/components/deck-builder/DeckColumn";
 import { CommanderSlot } from "@/components/deck-builder/CommanderSlot";
+import {
+  CollectionPanel,
+  CARD_DRAG_TYPE,
+} from "@/components/deck-builder/CollectionPanel";
 import { CardPreviewModal } from "@/components/collection/CardPreviewModal";
 
 const STORAGE_KEY = "tome.deck.v1";
@@ -32,12 +36,15 @@ function loadDeck(): DeckState {
 export default function DeckBuilderPage() {
   const [deck, setDeck] = useState<DeckState | null>(null);
   const [cardCache, setCardCache] = useState<Record<string, Card>>({});
-  const [ownedQuantities, setOwnedQuantities] = useState<Record<string, number>>({});
+  const [collection, setCollection] = useState<LibraryCard[] | null>(null);
   const [aiEnabled, setAiEnabled] = useState(false);
   const [generationPhase, setGenerationPhase] = useState<GenerationPhase | null>(null);
   const [explanation, setExplanation] = useState<string | null>(null);
   const [previewEntry, setPreviewEntry] = useState<DeckEntry | null>(null);
+  const [panelOpen, setPanelOpen] = useState(false);
+  const [dropActive, setDropActive] = useState(false);
   const loaded = useRef(false);
+  const dragDepth = useRef(0);
 
   // Initial load: stored deck + collection (for owned badges in search).
   useEffect(() => {
@@ -56,11 +63,7 @@ export default function DeckBuilderPage() {
         });
       });
     }
-    void getCollection().then((collection) => {
-      const owned: Record<string, number> = {};
-      for (const card of collection) owned[card.id] = card.quantity;
-      setOwnedQuantities(owned);
-    });
+    void getCollection().then(setCollection);
   }, []);
 
   // Persist on every change after the initial load.
@@ -188,6 +191,51 @@ export default function DeckBuilderPage() {
     return ids;
   }, [deck]);
 
+  const ownedQuantities = useMemo(() => {
+    const owned: Record<string, number> = {};
+    for (const card of collection ?? []) owned[card.id] = card.quantity;
+    return owned;
+  }, [collection]);
+
+  // Drop target handlers for cards dragged out of the collection panel.
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    if (e.dataTransfer.types.includes(CARD_DRAG_TYPE)) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "copy";
+    }
+  }, []);
+
+  const handleDragEnter = useCallback((e: React.DragEvent) => {
+    if (e.dataTransfer.types.includes(CARD_DRAG_TYPE)) {
+      dragDepth.current += 1;
+      setDropActive(true);
+    }
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    if (e.dataTransfer.types.includes(CARD_DRAG_TYPE)) {
+      dragDepth.current -= 1;
+      if (dragDepth.current <= 0) {
+        dragDepth.current = 0;
+        setDropActive(false);
+      }
+    }
+  }, []);
+
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      const cardId = e.dataTransfer.getData(CARD_DRAG_TYPE);
+      if (!cardId) return;
+      e.preventDefault();
+      dragDepth.current = 0;
+      setDropActive(false);
+      const card =
+        collection?.find((c) => c.id === cardId) ?? cardCache[cardId] ?? null;
+      if (card) addCard(card);
+    },
+    [collection, cardCache, addCard],
+  );
+
   const previewCard: LibraryCard | null = previewEntry
     ? { ...previewEntry.card, quantity: previewEntry.quantity }
     : null;
@@ -208,6 +256,8 @@ export default function DeckBuilderPage() {
         onGenerate={() => void generate()}
         onAdd={addCard}
         onClear={clearDeck}
+        panelOpen={panelOpen}
+        onTogglePanel={() => setPanelOpen((v) => !v)}
       />
 
       {explanation && (
@@ -229,34 +279,57 @@ export default function DeckBuilderPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-[repeat(auto-fill,minmax(170px,1fr))] items-start gap-x-4 gap-y-8 pt-6 sm:grid-cols-[repeat(auto-fill,minmax(190px,1fr))]">
-        <CommanderSlot
-          commander={commander}
-          onPreview={setPreviewEntry}
-          onRemove={removeCommander}
-        />
-        {columns.map(({ role, entries }) => (
-          <DeckColumn
-            key={role}
-            role={role}
-            entries={entries}
-            onPreview={setPreviewEntry}
-            onRemove={removeCard}
-            onSetCommander={setCommander}
-          />
-        ))}
-        {deck !== null && columns.length === 0 && (
-          <div className="col-span-full flex justify-center py-12 sm:col-span-2 sm:py-0 lg:col-span-3">
-            <div className="max-w-md rounded-xl border border-line bg-panel p-8 text-center">
-              <h2 className="text-lg font-medium">Start building</h2>
-              <p className="mt-2 text-sm leading-relaxed text-ink-muted">
-                Search above to add cards to the deck — they&apos;ll organize into
-                columns by role. Turn on AI generation to have Tome build a full
-                deck around whatever you&apos;ve added.
-              </p>
-            </div>
+      <div className="flex items-start gap-6 pt-6">
+        <div
+          onDragOver={handleDragOver}
+          onDragEnter={handleDragEnter}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+          className={`min-h-[320px] min-w-0 flex-1 rounded-xl transition-colors duration-150 ${
+            dropActive
+              ? "bg-action/5 outline-dashed outline-2 outline-offset-4 outline-action/60"
+              : ""
+          }`}
+        >
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(170px,1fr))] items-start gap-x-4 gap-y-8 sm:grid-cols-[repeat(auto-fill,minmax(190px,1fr))]">
+            <CommanderSlot
+              commander={commander}
+              onPreview={setPreviewEntry}
+              onRemove={removeCommander}
+            />
+            {columns.map(({ role, entries }) => (
+              <DeckColumn
+                key={role}
+                role={role}
+                entries={entries}
+                onPreview={setPreviewEntry}
+                onRemove={removeCard}
+                onSetCommander={setCommander}
+              />
+            ))}
+            {deck !== null && columns.length === 0 && (
+              <div className="col-span-full flex justify-center py-12 sm:col-span-2 sm:py-0 lg:col-span-3">
+                <div className="max-w-md rounded-xl border border-line bg-panel p-8 text-center">
+                  <h2 className="text-lg font-medium">Start building</h2>
+                  <p className="mt-2 text-sm leading-relaxed text-ink-muted">
+                    Search above to add cards to the deck — they&apos;ll organize
+                    into columns by role. Open the collection panel to drag cards
+                    in, or turn on AI generation to have Tome build a full deck
+                    around whatever you&apos;ve added.
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
-        )}
+        </div>
+
+        <CollectionPanel
+          open={panelOpen}
+          onClose={() => setPanelOpen(false)}
+          collection={collection}
+          deckCardIds={deckCardIds}
+          onAdd={addCard}
+        />
       </div>
 
       <CardPreviewModal

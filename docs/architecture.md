@@ -72,12 +72,38 @@ Claude **should not**: search the card database, validate rules, track collectio
 
 ## Project Structure
 
+As scaffolded. Frontend conventions (mock layer, shared filter code, DnD contract, design tokens) are documented in `docs/frontend.md`.
+
 ```
 project/
-  frontend/                  Next.js, React, TypeScript
+  frontend/                        Next.js 14 (App Router), React, TypeScript, Tailwind
+    src/
+      app/
+        layout.tsx                 root shell: theme, Inter font, side navigation
+        page.tsx                   landing page
+        collection/page.tsx        /collection — Arena-style grid of owned cards
+        deck-builder/page.tsx      /deck-builder — role-column deck board, AI generation
+      components/
+        collection/                CollectionGrid, CardTile, CollectionToolbar,
+                                   CollectionFilterControls, CardPreviewModal,
+                                   AddCardsDialog, CollectionUpload (stub: CSV import)
+        deck-builder/              DeckToolbar, DeckColumn, CommanderSlot,
+                                   CollectionPanel (drag-drop collection sidebar)
+        card-selection/            CardSelector (stub: build-around selection)
+        deck-display/              DeckView (stub: generated-deck display)
+        ui/                        shared primitives: ManaPips, SideNav
+      lib/
+        types.ts                   TS mirror of the data model (docs/data-model.md)
+        api.ts                     single backend gateway; mock switch (NEXT_PUBLIC_USE_MOCKS)
+        filter-cards.ts            shared collection filter/sort logic
+        mock/                      mock backend: cards.ts, collection.ts,
+                                   metadata.ts (CardMetadata stand-in), generate.ts
+        tests/                     vitest suite
 
-  backend/
-    api/                     FastAPI endpoints
+  backend/                         Python, FastAPI (routes exist; handlers are stubs)
+    api/
+      main.py                      app entry, CORS for localhost:3000, /health
+      routes/                      collection.py, cards.py, decks.py
     knowledge_pipeline/
       scryfall_importer.py
       metadata_generator.py
@@ -90,7 +116,6 @@ project/
       validator.py
     ai/
       claude_client.py
-    database/
+    database/                      models.py, session.py
+    tests/                         pytest suite (pythonpath = backend/)
 ```
-
-Update this layout as directories are actually scaffolded — treat it as a plan until the folders exist.

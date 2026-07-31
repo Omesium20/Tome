@@ -22,6 +22,7 @@ The guiding design principle: **structured data first, AI reasoning second.** Th
 
 For the full system architecture (both pipelines, ChromaDB structure, Claude's responsibilities/boundaries) see **[docs/architecture.md](docs/architecture.md)**.
 For the normalized entity model (Card, CardMetadata, Collection, Deck, DeckCard) see **[docs/data-model.md](docs/data-model.md)**.
+For frontend conventions (mock backend layer, shared filter logic/UI, drag-and-drop contract, design tokens, dev gotchas) see **[docs/frontend.md](docs/frontend.md)**.
 
 ---
 
@@ -41,30 +42,31 @@ For the normalized entity model (Card, CardMetadata, Collection, Deck, DeckCard)
 
 ## Development Commands
 
-The project has not been scaffolded yet — no `package.json` or backend project files exist. This section is a placeholder based on the stack above; verify against actual config once scaffolding lands, and correct this section if commands differ.
+Both sides are scaffolded. The frontend is a working UI running against a mock backend layer (see `docs/frontend.md`); the backend has real module structure but its route handlers and pipeline steps are still `NotImplementedError` stubs.
 
-**Frontend (`frontend/`, Next.js)**
+**Frontend (`frontend/`, Next.js)** — all verified working:
 ```
 npm install
-npm run dev       # local dev server
-npm run build     # production build
+npm run dev       # local dev server on :3000
+npm run build     # production build — do NOT run while `npm run dev` is up (corrupts .next/)
 npm run lint
-npm test
+npm test          # vitest
+npx tsc --noEmit  # type-check (safe alongside the dev server, unlike build)
 ```
 
-**Backend (`backend/`, FastAPI)**
+**Backend (`backend/`, FastAPI)** — run from `backend/` (imports and `pytest.ini` assume it as root; a `.venv` lives there):
 ```
 pip install -r requirements.txt
-uvicorn api.main:app --reload   # local dev server
+uvicorn api.main:app --reload   # local dev server on :8000 (routes are stubs)
 pytest                          # test suite
 ```
 
-**Knowledge Pipeline (offline, run manually / via script)**
+**Knowledge Pipeline (offline; all steps are stubs)** — from `backend/`:
 ```
-python -m backend.knowledge_pipeline.scryfall_importer
-python -m backend.knowledge_pipeline.metadata_generator
-python -m backend.knowledge_pipeline.document_generator
-python -m backend.knowledge_pipeline.embeddings
+python -m knowledge_pipeline.scryfall_importer
+python -m knowledge_pipeline.metadata_generator
+python -m knowledge_pipeline.document_generator
+python -m knowledge_pipeline.embeddings
 ```
 
 ---
