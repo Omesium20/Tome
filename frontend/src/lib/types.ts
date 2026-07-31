@@ -51,6 +51,22 @@ export interface DeckGenerationRequest {
   collectionPreference: CollectionPreference;
 }
 
+// Pipeline steps surfaced during generation (mirrors docs/architecture.md
+// Deck Generation Pipeline steps 2-5).
+export type GenerationPhase =
+  | "analyzing"
+  | "retrieving"
+  | "constructing"
+  | "validating";
+
+// Minimal shape the deck builder needs back from generation: card ids plus
+// the AI's rationale. Card data is resolved separately via the cards API.
+export interface GeneratedDeckSummary {
+  commanderId: string;
+  cards: { cardId: string; quantity: number }[];
+  explanation: string;
+}
+
 export interface DeckCard {
   deckId: string;
   cardId: string;

@@ -1,9 +1,17 @@
-import type { Card, Deck, DeckGenerationRequest, LibraryCard } from "./types";
+import type {
+  Card,
+  Deck,
+  DeckGenerationRequest,
+  GeneratedDeckSummary,
+  GenerationPhase,
+  LibraryCard,
+} from "./types";
 import {
   mockAddToCollection,
   mockGetCollection,
   mockSearchCards,
 } from "./mock/collection";
+import { mockGenerateDeck, mockGetCardsByIds } from "./mock/generate";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
 
@@ -53,6 +61,30 @@ export function getCollection(): Promise<LibraryCard[]> {
 export function searchCards(query: string): Promise<Card[]> {
   if (USE_MOCKS) return mockSearchCards(query);
   return request<Card[]>(`/api/cards/search?q=${encodeURIComponent(query)}`);
+}
+
+export function getCardsByIds(ids: string[]): Promise<Card[]> {
+  if (USE_MOCKS) return mockGetCardsByIds(ids);
+  return request<Card[]>(`/api/cards?ids=${ids.map(encodeURIComponent).join(",")}`);
+}
+
+// Deck generation as the deck builder consumes it: build-around card names in,
+// commander + card ids + explanation out. onPhase reports pipeline progress
+// (mock only for now — the real backend runs synchronously).
+export function generateDeckFromContext(
+  contextCardNames: string[],
+  onPhase?: (phase: GenerationPhase) => void,
+): Promise<GeneratedDeckSummary> {
+  if (USE_MOCKS) return mockGenerateDeck(contextCardNames, onPhase);
+  return generateDeck({
+    buildAroundCardNames: contextCardNames,
+    powerLevel: "Focused",
+    collectionPreference: "Build strongest possible deck",
+  }).then((deck) => ({
+    commanderId: deck.commanderId,
+    cards: deck.cards.map((c) => ({ cardId: c.cardId, quantity: 1 })),
+    explanation: deck.explanation,
+  }));
 }
 
 export function addToCollection(

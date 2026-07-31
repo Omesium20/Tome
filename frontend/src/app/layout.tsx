@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import Link from "next/link";
+import { SideNav } from "@/components/ui/SideNav";
 import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
@@ -18,31 +19,19 @@ export default function RootLayout({
   return (
     <html lang="en" className={inter.variable}>
       <body className="min-h-screen font-sans">
-        <header className="sticky top-0 z-40 border-b border-line bg-bg/95 backdrop-blur-sm">
-          <nav className="mx-auto flex h-14 max-w-screen-2xl items-center gap-8 px-4 sm:px-6">
+        <div className="flex min-h-screen flex-col md:flex-row">
+          {/* Collapses to a horizontal bar on small screens. */}
+          <aside className="z-40 flex shrink-0 items-center gap-6 border-b border-line bg-bg px-4 py-3 md:sticky md:top-0 md:h-screen md:w-56 md:flex-col md:items-stretch md:gap-8 md:border-b-0 md:border-r md:px-4 md:py-6">
             <Link
               href="/"
-              className="text-lg font-semibold tracking-tight text-ink transition-colors hover:text-gold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-action"
+              className="text-lg font-semibold tracking-tight text-ink transition-colors hover:text-gold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-action md:px-3"
             >
               Tome
             </Link>
-            <div className="flex items-center gap-6 text-sm">
-              <Link
-                href="/collection"
-                className="text-ink-muted transition-colors hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-action"
-              >
-                Collection
-              </Link>
-              <span
-                className="cursor-not-allowed text-ink-muted/50"
-                title="Coming soon"
-              >
-                Deck Builder
-              </span>
-            </div>
-          </nav>
-        </header>
-        {children}
+            <SideNav />
+          </aside>
+          <div className="min-w-0 flex-1">{children}</div>
+        </div>
       </body>
     </html>
   );

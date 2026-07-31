@@ -8,9 +8,11 @@ import { ManaPips } from "@/components/ui/ManaPips";
 export function CardPreviewModal({
   card,
   onClose,
+  quantityLabel = "In collection",
 }: {
   card: LibraryCard | null;
   onClose: () => void;
+  quantityLabel?: string;
 }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
 
@@ -54,7 +56,7 @@ export function CardPreviewModal({
               </p>
             )}
             <p className="mt-6 text-sm text-ink-muted">
-              In collection: <span className="font-medium text-ink">×{card.quantity}</span>
+              {quantityLabel}: <span className="font-medium text-ink">×{card.quantity}</span>
             </p>
             <button
               type="button"

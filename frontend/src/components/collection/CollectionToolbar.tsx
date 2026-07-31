@@ -55,7 +55,7 @@ export function CollectionToolbar({
   };
 
   return (
-    <div className="sticky top-14 z-30 -mx-4 border-b border-line bg-bg/95 px-4 py-3 backdrop-blur-sm sm:-mx-6 sm:px-6">
+    <div className="sticky top-0 z-30 -mx-4 border-b border-line bg-bg/95 px-4 py-3 backdrop-blur-sm sm:-mx-6 sm:px-6">
       <div className="mx-auto flex max-w-screen-2xl flex-wrap items-center gap-3">
         <input
           type="search"
@@ -121,10 +121,6 @@ export function CollectionToolbar({
           <option value="color">Sort: Color</option>
         </select>
 
-        <span className="ml-auto text-sm text-ink-muted" aria-live="polite">
-          {totalCards} {totalCards === 1 ? "card" : "cards"}
-        </span>
-
         <button
           type="button"
           onClick={onAddCards}
@@ -132,6 +128,12 @@ export function CollectionToolbar({
         >
           Add cards
         </button>
+      </div>
+
+      <div className="mx-auto mt-2 flex max-w-screen-2xl justify-center">
+        <span className="text-sm text-ink-muted" aria-live="polite">
+          {totalCards} {totalCards === 1 ? "card" : "cards"}
+        </span>
       </div>
     </div>
   );
