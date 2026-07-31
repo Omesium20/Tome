@@ -27,6 +27,11 @@ export interface CardMetadata {
   synergyTags: string[];
 }
 
+// A card joined with the user's Collection row — what collection endpoints return.
+export interface LibraryCard extends Card {
+  quantity: number;
+}
+
 export interface CollectionEntry {
   userId: string;
   cardId: string;

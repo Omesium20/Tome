@@ -1,12 +1,26 @@
-:root {
-  color-scheme: light dark;
-}
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-* {
-  box-sizing: border-box;
+:root {
+  color-scheme: dark;
 }
 
 body {
-  margin: 0;
-  font-family: system-ui, -apple-system, sans-serif;
+  @apply bg-bg text-ink antialiased;
+}
+
+/* Native <dialog> backdrop */
+dialog::backdrop {
+  background: rgba(15, 13, 11, 0.7);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

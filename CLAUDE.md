@@ -29,7 +29,7 @@ For the normalized entity model (Card, CardMetadata, Collection, Deck, DeckCard)
 
 | Layer | Technology | Responsibility |
 |---|---|---|
-| Frontend | Next.js, React, TypeScript | UI, collection management, card selection, deck display |
+| Frontend | Next.js, React, TypeScript, Tailwind CSS | UI, collection management, card selection, deck display |
 | Backend | Python, FastAPI | API endpoints, AI orchestration, deck validation, collection management, pipeline execution |
 | AI framework | LangChain | Retrieval, prompt construction, Claude API management, output parsing |
 | LLM | Anthropic Claude API | Card analysis, deck strategy, commander selection, deck construction, explanations |
