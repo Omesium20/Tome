@@ -10,7 +10,12 @@ The FastAPI backend routes are stubs, so the frontend runs against mocks that mi
 - **`src/lib/mock/cards.ts`** — generated card pool of ~78 real cards (real Scryfall data + art URLs), the stand-in for the backend Card table. Regenerate rather than hand-edit (it was produced by a one-off script hitting Scryfall's `/cards/collection` endpoint; Scryfall requires a `User-Agent` header).
 - **`src/lib/mock/metadata.ts`** — stands in for `CardMetadata.roles` from `docs/data-model.md` until the Knowledge Pipeline exists. The deck builder groups its columns by primary role. Role names are open-ended: anything not in `ROLE_ORDER` still renders, sorted after known roles, with Land always last.
 - **`src/lib/mock/generate.ts`** — mock of the Deck Generation Pipeline; steps through the real pipeline's phases (`analyzing → retrieving → constructing → validating`, the `GenerationPhase` type) so the loading UI maps 1:1 onto the real backend later.
-- **Mock persistence uses localStorage** so state survives refresh like a real backend would: collection under `tome.mock.collection.v1`, the working deck under `tome.deck.v1`. Mock calls add small artificial latency so loading states are exercised for real.
+- **`src/lib/mock/decks.ts`** — stands in for the saved-deck endpoints (`GET/POST/PUT/DELETE /api/decks`). Enforces the `MAX_DECKS` cap (100, defined in `src/lib/types.ts`) the way the real backend will: `saveDeck` rejects a create past the cap.
+- **Mock persistence uses localStorage** so state survives refresh like a real backend would: collection under `tome.mock.collection.v1`, saved decks under `tome.mock.decks.v1`, the working deck under `tome.deck.v1`. Mock calls add small artificial latency so loading states are exercised for real.
+
+## Working deck vs. saved decks
+
+The deck builder edits one **working deck**, persisted via `src/lib/working-deck.ts` (`tome.deck.v1` — always local state, mock or not; it's an editor draft, not backend data). Saving snapshots it as a `SavedDeck` through the decks API; the working deck then carries `deckId`/`name` so later saves update the same record instead of duplicating it. The `/decks` page opens a deck by writing it into the working-deck slot and navigating to `/deck-builder` (confirming first if a *different* unsaved deck would be replaced) — go through `working-deck.ts` for any new surface that hands a deck to the builder, don't touch the localStorage key directly.
 
 ## Shared filter logic and UI (do not re-duplicate)
 

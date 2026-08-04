@@ -74,6 +74,29 @@ export interface DeckCard {
   proxy: boolean;
 }
 
+// Product rule: a user can keep at most this many saved decks.
+export const MAX_DECKS = 100;
+
+// Create/update payload for the decks endpoints (id absent = create).
+export interface SaveDeckInput {
+  id?: string;
+  name: string;
+  commanderId: string | null;
+  cards: { cardId: string; quantity: number }[];
+}
+
+// A user's saved deck as the decks endpoints return it — a named snapshot of
+// the deck builder's working state. Distinct from `Deck`, which is what the
+// generation pipeline returns (owned/proxy flags, no name).
+export interface SavedDeck {
+  id: string;
+  name: string;
+  commanderId: string | null;
+  cards: { cardId: string; quantity: number }[];
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Deck {
   id: string;
   userId: string;

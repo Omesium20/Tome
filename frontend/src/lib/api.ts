@@ -5,6 +5,8 @@ import type {
   GeneratedDeckSummary,
   GenerationPhase,
   LibraryCard,
+  SavedDeck,
+  SaveDeckInput,
 } from "./types";
 import {
   mockAddToCollection,
@@ -12,6 +14,7 @@ import {
   mockSearchCards,
 } from "./mock/collection";
 import { mockGenerateDeck, mockGetCardsByIds } from "./mock/generate";
+import { mockDeleteDeck, mockListDecks, mockSaveDeck } from "./mock/decks";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
 
@@ -85,6 +88,33 @@ export function generateDeckFromContext(
     cards: deck.cards.map((c) => ({ cardId: c.cardId, quantity: 1 })),
     explanation: deck.explanation,
   }));
+}
+
+export function listDecks(): Promise<SavedDeck[]> {
+  if (USE_MOCKS) return mockListDecks();
+  return request<SavedDeck[]>("/api/decks");
+}
+
+// Create (no id) or update (id set) a saved deck. Rejects past MAX_DECKS.
+export function saveDeck(input: SaveDeckInput): Promise<SavedDeck> {
+  if (USE_MOCKS) return mockSaveDeck(input);
+  if (input.id) {
+    return request<SavedDeck>(`/api/decks/${encodeURIComponent(input.id)}`, {
+      method: "PUT",
+      body: JSON.stringify(input),
+    });
+  }
+  return request<SavedDeck>("/api/decks", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export function deleteDeck(id: string): Promise<void> {
+  if (USE_MOCKS) return mockDeleteDeck(id);
+  return request<void>(`/api/decks/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+  });
 }
 
 export function addToCollection(

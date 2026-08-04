@@ -22,7 +22,7 @@ The guiding design principle: **structured data first, AI reasoning second.** Th
 
 For the full system architecture (both pipelines, ChromaDB structure, Claude's responsibilities/boundaries) see **[docs/architecture.md](docs/architecture.md)**.
 For the normalized entity model (Card, CardMetadata, Collection, Deck, DeckCard) see **[docs/data-model.md](docs/data-model.md)**.
-For frontend conventions (mock backend layer, shared filter logic/UI, drag-and-drop contract, design tokens, dev gotchas) see **[docs/frontend.md](docs/frontend.md)**.
+For frontend conventions (mock backend layer, shared filter logic/UI, drag-and-drop contract, working-deck vs. saved-deck handoff, design tokens, dev gotchas) see **[docs/frontend.md](docs/frontend.md)**.
 
 ---
 

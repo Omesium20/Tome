@@ -2,39 +2,31 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Card, GenerationPhase, LibraryCard } from "@/lib/types";
-import { generateDeckFromContext, getCardsByIds, getCollection } from "@/lib/api";
+import {
+  generateDeckFromContext,
+  getCardsByIds,
+  getCollection,
+  saveDeck,
+} from "@/lib/api";
+import {
+  EMPTY_WORKING_DECK,
+  loadWorkingDeck,
+  saveWorkingDeck,
+  type WorkingDeck,
+} from "@/lib/working-deck";
 import { compareRoles, getPrimaryRole } from "@/lib/mock/metadata";
 import { DeckToolbar } from "@/components/deck-builder/DeckToolbar";
 import { DeckColumn, type DeckEntry } from "@/components/deck-builder/DeckColumn";
 import { CommanderSlot } from "@/components/deck-builder/CommanderSlot";
+import { SaveDeckDialog } from "@/components/deck-builder/SaveDeckDialog";
 import {
   CollectionPanel,
   CARD_DRAG_TYPE,
 } from "@/components/deck-builder/CollectionPanel";
 import { CardPreviewModal } from "@/components/collection/CardPreviewModal";
 
-const STORAGE_KEY = "tome.deck.v1";
-
-interface DeckState {
-  commanderId: string | null;
-  cards: Record<string, number>; // cardId -> quantity
-}
-
-const EMPTY_DECK: DeckState = { commanderId: null, cards: {} };
-
-function loadDeck(): DeckState {
-  if (typeof window === "undefined") return EMPTY_DECK;
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (raw) return JSON.parse(raw) as DeckState;
-  } catch {
-    // corrupt state — start fresh
-  }
-  return EMPTY_DECK;
-}
-
 export default function DeckBuilderPage() {
-  const [deck, setDeck] = useState<DeckState | null>(null);
+  const [deck, setDeck] = useState<WorkingDeck | null>(null);
   const [cardCache, setCardCache] = useState<Record<string, Card>>({});
   const [collection, setCollection] = useState<LibraryCard[] | null>(null);
   const [aiEnabled, setAiEnabled] = useState(false);
@@ -43,12 +35,14 @@ export default function DeckBuilderPage() {
   const [previewEntry, setPreviewEntry] = useState<DeckEntry | null>(null);
   const [panelOpen, setPanelOpen] = useState(false);
   const [dropActive, setDropActive] = useState(false);
+  const [saveDialogOpen, setSaveDialogOpen] = useState(false);
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
   const loaded = useRef(false);
   const dragDepth = useRef(0);
 
   // Initial load: stored deck + collection (for owned badges in search).
   useEffect(() => {
-    const stored = loadDeck();
+    const stored = loadWorkingDeck();
     setDeck(stored);
     loaded.current = true;
 
@@ -68,8 +62,8 @@ export default function DeckBuilderPage() {
 
   // Persist on every change after the initial load.
   useEffect(() => {
-    if (deck && loaded.current && typeof window !== "undefined") {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(deck));
+    if (deck && loaded.current) {
+      saveWorkingDeck(deck);
     }
   }, [deck]);
 
@@ -116,7 +110,7 @@ export default function DeckBuilderPage() {
       if (prev.commanderId && prev.commanderId !== card.id) {
         cards[prev.commanderId] = cards[prev.commanderId] ?? 1;
       }
-      return { commanderId: card.id, cards };
+      return { ...prev, commanderId: card.id, cards };
     });
   }, []);
 
@@ -126,7 +120,7 @@ export default function DeckBuilderPage() {
 
   const clearDeck = useCallback(() => {
     if (window.confirm("Clear the entire deck?")) {
-      setDeck(EMPTY_DECK);
+      setDeck(EMPTY_WORKING_DECK);
       setExplanation(null);
     }
   }, []);
@@ -145,10 +139,11 @@ export default function DeckBuilderPage() {
       const result = await generateDeckFromContext(contextNames, setGenerationPhase);
       const ids = result.cards.map((c) => c.cardId).concat(result.commanderId);
       cacheCards(await getCardsByIds(ids));
-      setDeck({
+      setDeck((prev) => ({
+        ...(prev ?? EMPTY_WORKING_DECK),
         commanderId: result.commanderId,
         cards: Object.fromEntries(result.cards.map((c) => [c.cardId, c.quantity])),
-      });
+      }));
       setExplanation(result.explanation);
     } finally {
       setGenerationPhase(null);
@@ -156,6 +151,44 @@ export default function DeckBuilderPage() {
   }, [deck, cardCache, cacheCards]);
 
   const commander = deck?.commanderId ? (cardCache[deck.commanderId] ?? null) : null;
+
+  // Save the working deck as a SavedDeck (visible on /decks). First save asks
+  // for a name; later saves update the same record.
+  const persistDeck = useCallback(
+    async (name: string) => {
+      if (!deck) return;
+      setSaveState("saving");
+      try {
+        const saved = await saveDeck({
+          id: deck.deckId ?? undefined,
+          name,
+          commanderId: deck.commanderId,
+          cards: Object.entries(deck.cards).map(([cardId, quantity]) => ({
+            cardId,
+            quantity,
+          })),
+        });
+        setDeck((prev) =>
+          prev ? { ...prev, deckId: saved.id, name: saved.name } : prev,
+        );
+        setSaveState("saved");
+        setTimeout(() => setSaveState((s) => (s === "saved" ? "idle" : s)), 1500);
+      } catch (err) {
+        setSaveState("idle");
+        window.alert(err instanceof Error ? err.message : "Saving the deck failed.");
+      }
+    },
+    [deck],
+  );
+
+  const handleSave = useCallback(() => {
+    if (!deck) return;
+    if (deck.deckId && deck.name) {
+      void persistDeck(deck.name);
+    } else {
+      setSaveDialogOpen(true);
+    }
+  }, [deck, persistDeck]);
 
   const columns = useMemo(() => {
     if (!deck) return [];
@@ -242,8 +275,11 @@ export default function DeckBuilderPage() {
 
   return (
     <main className="mx-auto max-w-screen-2xl px-4 pb-16 sm:px-6">
-      <div className="flex items-baseline justify-between pb-2 pt-6">
+      <div className="flex items-baseline gap-3 pb-2 pt-6">
         <h1 className="text-2xl font-semibold tracking-tight">Deck Builder</h1>
+        {deck?.name && (
+          <span className="truncate text-sm text-ink-muted">{deck.name}</span>
+        )}
       </div>
 
       <DeckToolbar
@@ -256,6 +292,8 @@ export default function DeckBuilderPage() {
         onGenerate={() => void generate()}
         onAdd={addCard}
         onClear={clearDeck}
+        onSave={handleSave}
+        saveState={saveState}
         panelOpen={panelOpen}
         onTogglePanel={() => setPanelOpen((v) => !v)}
       />
@@ -336,6 +374,13 @@ export default function DeckBuilderPage() {
         card={previewCard}
         onClose={() => setPreviewEntry(null)}
         quantityLabel="In deck"
+      />
+
+      <SaveDeckDialog
+        open={saveDialogOpen}
+        defaultName={deck?.name ?? (commander ? `${commander.name} deck` : "Untitled deck")}
+        onSave={(name) => void persistDeck(name)}
+        onClose={() => setSaveDialogOpen(false)}
       />
     </main>
   );

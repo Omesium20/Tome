@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 const links = [
   { href: "/collection", label: "Collection" },
   { href: "/deck-builder", label: "Deck Builder" },
+  { href: "/decks", label: "Decks" },
 ];
 
 export function SideNav() {

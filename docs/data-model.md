@@ -50,23 +50,26 @@ Tracks the cards a user owns.
 
 ## Deck
 
-A generated deck.
+A user's saved deck — whether AI-generated or built by hand in the deck builder. Product rule: **a user may keep at most 100 saved decks** (`MAX_DECKS`, mirrored in `frontend/src/lib/types.ts`); the backend rejects creates past the cap, the UI disables its create button.
 
 | Field | Notes |
 |---|---|
 | id | |
 | user_id | |
-| commander_id | FK to Card |
+| name | user-chosen on first save |
+| commander_id | FK to Card; nullable — a work-in-progress deck may not have one yet |
 | created_at | |
+| updated_at | saving an existing deck updates in place rather than creating a duplicate |
 
 ## DeckCard
 
-Cards inside a generated deck.
+Cards inside a saved deck.
 
 | Field | Notes |
 |---|---|
 | deck_id | FK to Deck |
 | card_id | FK to Card |
+| quantity | 1 for everything except basic lands (singleton format) |
 | owned | whether the user already owns this card |
 | proxy | whether this card is recommended as a proxy |
 

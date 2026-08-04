@@ -27,6 +27,8 @@ export function DeckToolbar({
   onGenerate,
   onAdd,
   onClear,
+  onSave,
+  saveState,
   panelOpen,
   onTogglePanel,
 }: {
@@ -39,6 +41,8 @@ export function DeckToolbar({
   onGenerate: () => void;
   onAdd: (card: Card) => void;
   onClear: () => void;
+  onSave: () => void;
+  saveState: "idle" | "saving" | "saved";
   panelOpen: boolean;
   onTogglePanel: () => void;
 }) {
@@ -223,6 +227,23 @@ export function DeckToolbar({
               {generating ? PHASE_LABELS[generationPhase] : "Generate deck"}
             </button>
           )}
+
+          <button
+            type="button"
+            onClick={onSave}
+            disabled={generating || saveState === "saving" || deckCount === 0}
+            className={`h-10 cursor-pointer rounded-lg px-4 text-sm font-medium transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-action ${
+              saveState === "saved"
+                ? "bg-success/20 text-success"
+                : "bg-action text-white hover:bg-action/85"
+            }`}
+          >
+            {saveState === "saved"
+              ? "Saved ✓"
+              : saveState === "saving"
+                ? "Saving…"
+                : "Save deck"}
+          </button>
 
           <button
             type="button"

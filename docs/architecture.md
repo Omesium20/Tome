@@ -83,12 +83,15 @@ project/
         page.tsx                   landing page
         collection/page.tsx        /collection — Arena-style grid of owned cards
         deck-builder/page.tsx      /deck-builder — role-column deck board, AI generation
+        decks/page.tsx             /decks — saved-deck grid, 100-deck cap, create/open/delete
       components/
         collection/                CollectionGrid, CardTile, CollectionToolbar,
                                    CollectionFilterControls, CardPreviewModal,
                                    AddCardsDialog, CollectionUpload (stub: CSV import)
         deck-builder/              DeckToolbar, DeckColumn, CommanderSlot,
+                                   SaveDeckDialog (first-save name prompt),
                                    CollectionPanel (drag-drop collection sidebar)
+        decks/                     DeckTile (saved-deck card on /decks)
         card-selection/            CardSelector (stub: build-around selection)
         deck-display/              DeckView (stub: generated-deck display)
         ui/                        shared primitives: ManaPips, SideNav
@@ -96,7 +99,9 @@ project/
         types.ts                   TS mirror of the data model (docs/data-model.md)
         api.ts                     single backend gateway; mock switch (NEXT_PUBLIC_USE_MOCKS)
         filter-cards.ts            shared collection filter/sort logic
-        mock/                      mock backend: cards.ts, collection.ts,
+        working-deck.ts            deck builder's in-progress deck (localStorage),
+                                   shared with /decks for open/create handoff
+        mock/                      mock backend: cards.ts, collection.ts, decks.ts,
                                    metadata.ts (CardMetadata stand-in), generate.ts
         tests/                     vitest suite
 
