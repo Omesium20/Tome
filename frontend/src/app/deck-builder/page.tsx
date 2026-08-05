@@ -2,12 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Card, GenerationPhase, LibraryCard } from "@/lib/types";
-import {
-  generateDeckFromContext,
-  getCardsByIds,
-  getCollection,
-  saveDeck,
-} from "@/lib/api";
+import { generateDeckFromContext, getCardsByIds, saveDeck } from "@/lib/api";
+import { useCollection } from "@/lib/hooks/useCollection";
 import {
   EMPTY_WORKING_DECK,
   loadWorkingDeck,
@@ -28,7 +24,7 @@ import { CardPreviewModal } from "@/components/collection/CardPreviewModal";
 export default function DeckBuilderPage() {
   const [deck, setDeck] = useState<WorkingDeck | null>(null);
   const [cardCache, setCardCache] = useState<Record<string, Card>>({});
-  const [collection, setCollection] = useState<LibraryCard[] | null>(null);
+  const { collection } = useCollection();
   const [aiEnabled, setAiEnabled] = useState(false);
   const [generationPhase, setGenerationPhase] = useState<GenerationPhase | null>(null);
   const [explanation, setExplanation] = useState<string | null>(null);
@@ -40,7 +36,7 @@ export default function DeckBuilderPage() {
   const loaded = useRef(false);
   const dragDepth = useRef(0);
 
-  // Initial load: stored deck + collection (for owned badges in search).
+  // Initial load: stored deck (collection comes from the shared useCollection cache).
   useEffect(() => {
     const stored = loadWorkingDeck();
     setDeck(stored);
@@ -57,7 +53,6 @@ export default function DeckBuilderPage() {
         });
       });
     }
-    void getCollection().then(setCollection);
   }, []);
 
   // Persist on every change after the initial load.
@@ -230,6 +225,12 @@ export default function DeckBuilderPage() {
     return owned;
   }, [collection]);
 
+  const collectionById = useMemo(() => {
+    const map = new Map<string, LibraryCard>();
+    for (const card of collection ?? []) map.set(card.id, card);
+    return map;
+  }, [collection]);
+
   // Drop target handlers for cards dragged out of the collection panel.
   const handleDragOver = useCallback((e: React.DragEvent) => {
     if (e.dataTransfer.types.includes(CARD_DRAG_TYPE)) {
@@ -262,11 +263,10 @@ export default function DeckBuilderPage() {
       e.preventDefault();
       dragDepth.current = 0;
       setDropActive(false);
-      const card =
-        collection?.find((c) => c.id === cardId) ?? cardCache[cardId] ?? null;
+      const card = collectionById.get(cardId) ?? cardCache[cardId] ?? null;
       if (card) addCard(card);
     },
-    [collection, cardCache, addCard],
+    [collectionById, cardCache, addCard],
   );
 
   const previewCard: LibraryCard | null = previewEntry

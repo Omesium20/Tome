@@ -8,8 +8,10 @@ const PIP_CLASSES: Record<string, string> = {
   G: "bg-mana-g text-white",
 };
 
+const PIP_PATTERN = /\{([^}]+)\}/g;
+
 function parsePips(manaCost: string): string[] {
-  return Array.from(manaCost.matchAll(/\{([^}]+)\}/g), (m) => m[1]);
+  return Array.from(manaCost.matchAll(PIP_PATTERN), (m) => m[1]);
 }
 
 export function ManaPips({

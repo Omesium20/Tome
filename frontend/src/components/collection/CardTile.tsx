@@ -14,7 +14,7 @@ export function CardTile({
     <button
       type="button"
       onClick={() => onSelect(card)}
-      className="group relative block w-full cursor-pointer rounded-xl transition-transform duration-200 hover:-translate-y-1 focus-visible:-translate-y-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-action"
+      className="group relative block w-full cursor-pointer rounded-xl transition-transform duration-200 hover:-translate-y-1 focus-visible:-translate-y-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-action [content-visibility:auto] [contain-intrinsic-size:180px_252px]"
       aria-label={`${card.name}, ${card.quantity} in collection`}
     >
       <div className="relative aspect-card overflow-hidden rounded-xl border border-line bg-panel shadow-md transition-shadow duration-200 group-hover:shadow-xl">

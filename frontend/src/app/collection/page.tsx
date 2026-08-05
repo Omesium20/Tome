@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import type { LibraryCard } from "@/lib/types";
-import { getCollection } from "@/lib/api";
+import { useCollection } from "@/lib/hooks/useCollection";
 import {
   CollectionGrid,
   CollectionGridSkeleton,
@@ -17,25 +17,10 @@ import {
 } from "@/lib/filter-cards";
 
 export default function CollectionPage() {
-  const [collection, setCollection] = useState<LibraryCard[] | null>(null);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const { collection, error: loadError, mutate } = useCollection();
   const [filters, setFilters] = useState<CollectionFilters>(DEFAULT_FILTERS);
   const [previewCard, setPreviewCard] = useState<LibraryCard | null>(null);
   const [addDialogOpen, setAddDialogOpen] = useState(false);
-
-  const loadCollection = useCallback(async () => {
-    setLoadError(null);
-    setCollection(null);
-    try {
-      setCollection(await getCollection());
-    } catch (err) {
-      setLoadError(err instanceof Error ? err.message : "Failed to load collection");
-    }
-  }, []);
-
-  useEffect(() => {
-    void loadCollection();
-  }, [loadCollection]);
 
   const visibleCards = useMemo(
     () => (collection ? applyFilters(collection, filters) : []),
@@ -53,18 +38,21 @@ export default function CollectionPage() {
     [collection],
   );
 
-  const handleAdded = useCallback((updated: LibraryCard) => {
-    setCollection((prev) => {
-      if (!prev) return prev;
-      const existing = prev.findIndex((c) => c.id === updated.id);
-      if (existing >= 0) {
-        const next = [...prev];
-        next[existing] = updated;
-        return next;
-      }
-      return [...prev, updated];
-    });
-  }, []);
+  const handleAdded = useCallback(
+    (updated: LibraryCard) => {
+      void mutate((prev) => {
+        if (!prev) return prev;
+        const existing = prev.findIndex((c) => c.id === updated.id);
+        if (existing >= 0) {
+          const next = [...prev];
+          next[existing] = updated;
+          return next;
+        }
+        return [...prev, updated];
+      }, { revalidate: false });
+    },
+    [mutate],
+  );
 
   const hasActiveFilters =
     filters.query.trim() !== "" || filters.colors.length > 0 || filters.type !== "";
@@ -90,7 +78,7 @@ export default function CollectionPage() {
             </p>
             <button
               type="button"
-              onClick={() => void loadCollection()}
+              onClick={() => void mutate()}
               className="mt-4 cursor-pointer rounded-lg bg-action px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-action/85 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-action"
             >
               Retry

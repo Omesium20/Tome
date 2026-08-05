@@ -4,6 +4,7 @@
     "@typescript-eslint/no-unused-vars": "warn",
     "eqeqeq": "error",
     "no-var": "error",
-    "prefer-const": "error"
+    "prefer-const": "error",
+    "no-restricted-imports": "warn"
   }
 }
