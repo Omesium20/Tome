@@ -1,15 +1,9 @@
 from fastapi import APIRouter
-from pydantic import BaseModel
+from api.schemas import DeckGenerationRequest
 
 from deck_pipeline import generator, retrieval, validator
 
 router = APIRouter()
-
-
-class DeckGenerationRequest(BaseModel):
-    build_around_card_names: list[str]
-    power_level: str
-    collection_preference: str
 
 
 @router.post("/generate")
