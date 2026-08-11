@@ -3,6 +3,14 @@
 Guidance for Claude Code when working in this repository. Full requirements live in `PRD.md`; deeper technical detail lives in `docs/` (linked below). Keep this file itself short — it's a map, not the territory.
 
 ---
+## Important
+
+- **Keep this document updated.** Whenever a change introduces or alters an architectural or design decision — a new pipeline step, a changed data model field, a new service boundary, a stack swap — update `CLAUDE.md` and the relevant file in `docs/` as part of that same change, not as follow-up cleanup.
+- **Keep `CLAUDE.md` itself under ~200 lines.** It should stay a high-level map: overview, stack, commands, and pointers. If something needs more than a few lines of explanation, it belongs in its own file under `docs/` with a link from here — don't let detail accumulate in this file.
+- `PRD.md` is the source of truth for product scope and requirements; `docs/architecture.md` and `docs/data-model.md` are source of truth for technical design. If code and docs disagree, treat that as a bug to fix, not ambiguity to route around.
+- Claude must never take on the backend's responsibilities (rule validation, legality checks, collection tracking, DB search) — those live in code per `docs/architecture.md`, not in prompts.
+- Make sure that when making code changes for a particular tool that you are using official documentation whenever you are writing code. Use the Context7 MCP if possible. I want you to be able to cite your sources from context when prompted.
+
 
 ## Overview
 
@@ -44,6 +52,13 @@ For frontend conventions (mock backend layer, shared filter logic/UI, drag-and-d
 
 Both sides are scaffolded. The frontend is a working UI running against a mock backend layer (see `docs/frontend.md`); the backend has real module structure but its route handlers and pipeline steps are still `NotImplementedError` stubs.
 
+```
+Dev server — `fastapi dev` takes a direct file path, so run it from `backend/api/` instead:
+```
+cd backend/api
+fastapi dev main.py   # local dev server on :8000 (routes are stubs)
+```
+
 **Frontend (`frontend/`, Next.js)** — all verified working:
 ```
 npm install
@@ -57,9 +72,7 @@ npx tsc --noEmit  # type-check (safe alongside the dev server, unlike build)
 **Backend (`backend/`, FastAPI)** — run from `backend/` (imports and `pytest.ini` assume it as root; a `.venv` lives there):
 ```
 pip install -r requirements.txt
-uvicorn api.main:app --reload   # local dev server on :8000 (routes are stubs)
 pytest                          # test suite
-```
 
 **Knowledge Pipeline (offline; all steps are stubs)** — from `backend/`:
 ```
@@ -71,9 +84,4 @@ python -m knowledge_pipeline.embeddings
 
 ---
 
-## Important
 
-- **Keep this document updated.** Whenever a change introduces or alters an architectural or design decision — a new pipeline step, a changed data model field, a new service boundary, a stack swap — update `CLAUDE.md` and the relevant file in `docs/` as part of that same change, not as follow-up cleanup.
-- **Keep `CLAUDE.md` itself under ~200 lines.** It should stay a high-level map: overview, stack, commands, and pointers. If something needs more than a few lines of explanation, it belongs in its own file under `docs/` with a link from here — don't let detail accumulate in this file.
-- `PRD.md` is the source of truth for product scope and requirements; `docs/architecture.md` and `docs/data-model.md` are source of truth for technical design. If code and docs disagree, treat that as a bug to fix, not ambiguity to route around.
-- Claude must never take on the backend's responsibilities (rule validation, legality checks, collection tracking, DB search) — those live in code per `docs/architecture.md`, not in prompts.
