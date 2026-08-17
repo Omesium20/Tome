@@ -7,6 +7,7 @@ Guidance for Claude Code when working in this repository. Full requirements live
 
 - **Keep this document updated.** Whenever a change introduces or alters an architectural or design decision — a new pipeline step, a changed data model field, a new service boundary, a stack swap — update `CLAUDE.md` and the relevant file in `docs/` as part of that same change, not as follow-up cleanup.
 - **Keep `CLAUDE.md` itself under ~200 lines.** It should stay a high-level map: overview, stack, commands, and pointers. If something needs more than a few lines of explanation, it belongs in its own file under `docs/` with a link from here — don't let detail accumulate in this file.
+- **Keep the Table of Contents below in sync.** Any time a doc file is added, removed, or gets a new/renamed top-level topic (a `##` heading), update its row in the table below in the same change — this table is how Claude decides which file to open, so a stale row sends future Claude down the wrong path.
 - `PRD.md` is the source of truth for product scope and requirements; `docs/architecture.md` and `docs/data-model.md` are source of truth for technical design. If code and docs disagree, treat that as a bug to fix, not ambiguity to route around.
 - Claude must never take on the backend's responsibilities (rule validation, legality checks, collection tracking, DB search) — those live in code per `docs/architecture.md`, not in prompts.
 - Make sure that when making code changes for a particular tool that you are using official documentation whenever you are writing code. Use the Context7 MCP if possible. I want you to be able to cite your sources from context when prompted.
@@ -28,9 +29,17 @@ Tome is an AI-powered Magic: The Gathering **Commander deck-building assistant**
 
 The guiding design principle: **structured data first, AI reasoning second.** The Knowledge Pipeline builds reusable, normalized understanding of every card; the Deck Generation Pipeline uses that understanding to make strategic decisions. Claude is the expert deck builder; the backend owns retrieval, validation, and correctness.
 
-For the full system architecture (both pipelines, ChromaDB structure, Claude's responsibilities/boundaries) see **[docs/architecture.md](docs/architecture.md)**.
-For the normalized entity model (Card, CardMetadata, Collection, Deck, DeckCard) see **[docs/data-model.md](docs/data-model.md)**.
-For frontend conventions (mock backend layer, shared filter logic/UI, drag-and-drop contract, working-deck vs. saved-deck handoff, design tokens, dev gotchas) see **[docs/frontend.md](docs/frontend.md)**.
+## Table of Contents
+
+Which doc to open for a given topic. `PRD.md`, `docs/architecture.md`, and `docs/data-model.md` are sources of truth; the rest hold implementation-level detail once a stage is built.
+
+| Doc | Topics |
+|---|---|
+| [docs/PRD.md](docs/PRD.md) | product scope & MVP boundaries · user flow (import → build-around → config questions → generate) · both pipelines end-to-end · tech stack rationale · full normalized knowledge model · knowledge documents · ChromaDB structure · Claude responsibilities · success criteria · future enhancements |
+| [docs/architecture.md](docs/architecture.md) | system overview diagram · Knowledge Pipeline stages · Deck Generation Pipeline stages · Claude vs. backend division of responsibility · project/module structure |
+| [docs/data-model.md](docs/data-model.md) | entity schemas — Card, CardMetadata, Collection, Deck, DeckCard |
+| [docs/knowledge-pipeline.md](docs/knowledge-pipeline.md) | Scryfall Importer — bulk data API, card schema → `Card` field mapping, card faces/DFCs, legalities, rate limits |
+| [docs/frontend.md](docs/frontend.md) | mock backend layer & `NEXT_PUBLIC_USE_MOCKS` switch · working-deck vs. saved-deck handoff · shared collection filter logic/UI · drag-and-drop contract · design tokens · dev gotchas |
 
 ---
 
