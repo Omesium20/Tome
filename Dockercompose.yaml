@@ -1,0 +1,48 @@
+services:
+  db:
+    build:
+      context: ./db
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-tome}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+      POSTGRES_DB: ${POSTGRES_DB:-tome}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-tome} -d ${POSTGRES_DB:-tome}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+    env_file:
+      - ./backend/.env
+    environment:
+      # Overrides the sqlite default in backend/.env — env_file values are applied
+      # first, then `environment` wins on top of them.
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-tome}:${POSTGRES_PASSWORD:-changeme}@db:5432/${POSTGRES_DB:-tome}
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        # Browser code runs on the host, not inside Docker's network, so this has to
+        # be the published host port/localhost — not the `backend` service name.
+        NEXT_PUBLIC_API_BASE_URL: http://localhost:8000
+        NEXT_PUBLIC_USE_MOCKS: "false"
+    depends_on:
+      - backend
+    ports:
+      - "3000:3000"
+
+volumes:
+  pgdata:

@@ -1,0 +1,30 @@
+# Windows venv — huge, and its binaries wouldn't run in a Linux container anyway
+.venv/
+venv/
+
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# secrets — supplied at runtime via compose env_file/environment, not baked into the image
+.env
+.env.*
+!.env.example
+
+# rebuildable data artifacts
+tome.db
+*.db
+*.sqlite3
+chroma_data/
+chroma_db/
+data/scryfall/
+*.bulk.json
+.cache/
+models/
+
+.git/

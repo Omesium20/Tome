@@ -1,6 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  output: "standalone",
   images: {
     // Scryfall rejects requests without a User-Agent header, which breaks the
     // Next image-optimizer proxy (Node fetch sends none). The browser loads
