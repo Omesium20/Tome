@@ -23,9 +23,9 @@ venv/
 .coverage
 htmlcov/
 
-# ---------- Node / Next.js / frontend ----------
+# ---------- Node / Vite / frontend ----------
 node_modules/
-.next/
+dist/
 out/
 build/
 .vercel/

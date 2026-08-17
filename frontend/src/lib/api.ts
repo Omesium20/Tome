@@ -16,10 +16,12 @@ import {
 import { mockGenerateDeck, mockGetCardsByIds } from "./mock/generate";
 import { mockDeleteDeck, mockListDecks, mockSaveDeck } from "./mock/decks";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
+// Vite inlines import.meta.env.VITE_* at build time, so these are baked into
+// the bundle — they're build args in the Dockerfile, not runtime env vars.
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
 
 // The backend routes are still stubs, so mocks are on unless explicitly disabled.
-const USE_MOCKS = process.env.NEXT_PUBLIC_USE_MOCKS !== "false";
+const USE_MOCKS = import.meta.env.VITE_USE_MOCKS !== "false";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE_URL}${path}`, {

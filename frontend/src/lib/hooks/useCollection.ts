@@ -1,5 +1,3 @@
-"use client";
-
 // Shared SWR cache for the collection: /collection and the deck builder both
 // need the full LibraryCard[] list, and previously each fetched (and
 // re-fetched on every mount) independently. Keying on a fixed string dedupes

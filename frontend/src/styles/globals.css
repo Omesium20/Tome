@@ -4,6 +4,10 @@
 
 :root {
   color-scheme: dark;
+  /* Set here rather than injected by a framework font loader. The family name
+     comes from @fontsource-variable/inter (imported in main.tsx); the variable
+     is what tailwind.config.ts's fontFamily.sans resolves. */
+  --font-inter: "Inter Variable", "Inter", system-ui, sans-serif;
 }
 
 body {

@@ -1,5 +1,3 @@
-"use client";
-
 import type { LibraryCard } from "@/lib/types";
 import { CardTile } from "./CardTile";
 

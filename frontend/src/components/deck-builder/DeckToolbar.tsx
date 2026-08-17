@@ -1,6 +1,3 @@
-"use client";
-
-import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import type { Card, GenerationPhase } from "@/lib/types";
 import { searchCards } from "@/lib/api";
@@ -138,12 +135,11 @@ export function DeckToolbar({
                         className="flex w-full cursor-pointer items-center gap-3 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-panel-raised disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-action"
                       >
                         <div className="relative aspect-card w-9 shrink-0 overflow-hidden rounded border border-line">
-                          <Image
+                          <img
                             src={card.imageUrl}
                             alt=""
-                            fill
-                            sizes="36px"
-                            className="object-cover"
+                            loading="lazy"
+                            className="absolute inset-0 h-full w-full object-cover"
                           />
                         </div>
                         <div className="min-w-0 flex-1">

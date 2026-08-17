@@ -1,6 +1,3 @@
-"use client";
-
-import Image from "next/image";
 import type { LibraryCard } from "@/lib/types";
 
 export function CardTile({
@@ -18,12 +15,11 @@ export function CardTile({
       aria-label={`${card.name}, ${card.quantity} in collection`}
     >
       <div className="relative aspect-card overflow-hidden rounded-xl border border-line bg-panel shadow-md transition-shadow duration-200 group-hover:shadow-xl">
-        <Image
+        <img
           src={card.imageUrl}
           alt={card.name}
-          fill
-          sizes="(max-width: 640px) 45vw, (max-width: 1024px) 30vw, 200px"
-          className="object-cover"
+          loading="lazy"
+          className="absolute inset-0 h-full w-full object-cover"
         />
       </div>
       <span className="absolute bottom-2 right-2 rounded-md border border-line bg-bg/90 px-1.5 py-0.5 text-xs font-medium text-ink-muted backdrop-blur-sm">

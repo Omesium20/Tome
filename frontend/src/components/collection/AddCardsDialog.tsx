@@ -1,6 +1,3 @@
-"use client";
-
-import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import type { Card, LibraryCard } from "@/lib/types";
 import { searchCards, addToCollection } from "@/lib/api";
@@ -137,12 +134,11 @@ export function AddCardsDialog({
                   className="flex items-center gap-3 rounded-xl border border-line bg-bg p-2"
                 >
                   <div className="relative aspect-card w-12 shrink-0 overflow-hidden rounded-md border border-line">
-                    <Image
+                    <img
                       src={card.imageUrl}
                       alt=""
-                      fill
-                      sizes="48px"
-                      className="object-cover"
+                      loading="lazy"
+                      className="absolute inset-0 h-full w-full object-cover"
                     />
                   </div>
                   <div className="min-w-0 flex-1">

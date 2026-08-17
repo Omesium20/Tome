@@ -1,6 +1,3 @@
-"use client";
-
-import Image from "next/image";
 import { useEffect, useRef } from "react";
 import type { LibraryCard } from "@/lib/types";
 import { ManaPips } from "@/components/ui/ManaPips";
@@ -36,12 +33,10 @@ export function CardPreviewModal({
       {card && (
         <div className="flex flex-col gap-6 p-6 sm:flex-row">
           <div className="relative mx-auto aspect-card w-64 shrink-0 overflow-hidden rounded-xl border border-line sm:w-72">
-            <Image
+            <img
               src={card.imageUrl}
               alt={card.name}
-              fill
-              sizes="288px"
-              className="object-cover"
+              className="absolute inset-0 h-full w-full object-cover"
             />
           </div>
           <div className="min-w-0 flex-1">

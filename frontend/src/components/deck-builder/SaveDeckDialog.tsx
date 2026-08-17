@@ -1,5 +1,3 @@
-"use client";
-
 import { useEffect, useRef, useState } from "react";
 
 // Name prompt for the first save of a working deck. Subsequent saves update

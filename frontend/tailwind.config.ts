@@ -3,7 +3,7 @@ import type { Config } from "tailwindcss";
 // Palette: "ancient archive meets modern AI research lab" — dark only.
 // Card art supplies the color; accents are used sparingly by role.
 const config: Config = {
-  content: ["./src/**/*.{ts,tsx}"],
+  content: ["./index.html", "./src/**/*.{ts,tsx}"],
   theme: {
     extend: {
       colors: {

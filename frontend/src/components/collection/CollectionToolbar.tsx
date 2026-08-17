@@ -1,5 +1,3 @@
-"use client";
-
 import type { CollectionFilters } from "@/lib/filter-cards";
 import { CollectionFilterControls } from "./CollectionFilterControls";
 

@@ -1,6 +1,3 @@
-"use client";
-
-import Image from "next/image";
 import { useMemo, useState } from "react";
 import type { Card, LibraryCard } from "@/lib/types";
 import {
@@ -50,12 +47,11 @@ function PanelCardTile({
           addable ? "" : "opacity-40"
         }`}
       >
-        <Image
+        <img
           src={card.imageUrl}
           alt={card.name}
-          fill
-          sizes="140px"
-          className="object-cover"
+          loading="lazy"
+          className="absolute inset-0 h-full w-full object-cover"
         />
       </div>
       <span className="pointer-events-none absolute bottom-1 right-1 rounded border border-line bg-bg/90 px-1 py-0.5 text-[10px] font-medium text-ink-muted backdrop-blur-sm">

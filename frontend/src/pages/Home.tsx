@@ -1,6 +1,6 @@
-import Link from "next/link";
+import { Link } from "react-router";
 
-export default function HomePage() {
+export function Home() {
   return (
     <main className="mx-auto flex max-w-screen-md flex-col items-start px-6 pt-24">
       <h1 className="text-4xl font-semibold tracking-tight">Tome</h1>
@@ -10,7 +10,7 @@ export default function HomePage() {
         of the deck.
       </p>
       <Link
-        href="/collection"
+        to="/collection"
         className="mt-8 rounded-lg bg-action px-5 py-2.5 text-sm font-medium text-white transition-colors duration-150 hover:bg-action/85 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-action"
       >
         View your collection

@@ -1,5 +1,3 @@
-"use client";
-
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Card, GenerationPhase, LibraryCard } from "@/lib/types";
 import { generateDeckFromContext, getCardsByIds, saveDeck } from "@/lib/api";
@@ -21,7 +19,7 @@ import {
 } from "@/components/deck-builder/CollectionPanel";
 import { CardPreviewModal } from "@/components/collection/CardPreviewModal";
 
-export default function DeckBuilderPage() {
+export function DeckBuilder() {
   const [deck, setDeck] = useState<WorkingDeck | null>(null);
   const [cardCache, setCardCache] = useState<Record<string, Card>>({});
   const { collection } = useCollection();

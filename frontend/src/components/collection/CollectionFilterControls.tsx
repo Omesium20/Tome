@@ -1,5 +1,3 @@
-"use client";
-
 import type { CollectionFilters } from "@/lib/filter-cards";
 
 const COLOR_OPTIONS: { symbol: string; label: string; className: string }[] = [

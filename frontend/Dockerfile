@@ -21,32 +21,26 @@ COPY . .
 
 ENV NODE_ENV=production
 
-# NEXT_PUBLIC_* vars are inlined into the JS bundle at build time, not read from the
-# environment at container startup — so they must come in as build args here, not as
-# `environment:` entries on the runner service in Dockercompose.yaml.
-ARG NEXT_PUBLIC_API_BASE_URL
-ARG NEXT_PUBLIC_USE_MOCKS
-ENV NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL}
-ENV NEXT_PUBLIC_USE_MOCKS=${NEXT_PUBLIC_USE_MOCKS}
+# Vite inlines import.meta.env.VITE_* into the JS bundle at build time rather
+# than reading it at container startup — so these must arrive as build args
+# here, not as `environment:` entries on the service in Dockercompose.yaml.
+ARG VITE_API_BASE_URL
+ARG VITE_USE_MOCKS
+ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
+ENV VITE_USE_MOCKS=${VITE_USE_MOCKS}
 
 RUN npm run build
 
 # ============================================
-# Stage 3: run the app
+# Stage 3: serve the static build
 # ============================================
-FROM node:20-slim AS runner
+# Vite emits a plain static bundle with no server component, so this is nginx
+# rather than a Node runtime — a much smaller final image.
+FROM nginx:alpine AS runner
 
-WORKDIR /app
-
-ENV NODE_ENV=production
-ENV PORT=3000
-ENV HOSTNAME=0.0.0.0
-
-COPY --from=builder --chown=node:node /app/.next/standalone ./
-COPY --from=builder --chown=node:node /app/.next/static ./.next/static
-
-USER node
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY --from=builder /app/dist /usr/share/nginx/html
 
 EXPOSE 3000
 
-CMD ["node", "server.js"]
+CMD ["nginx", "-g", "daemon off;"]

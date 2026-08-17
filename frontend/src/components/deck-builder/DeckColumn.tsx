@@ -1,6 +1,3 @@
-"use client";
-
-import Image from "next/image";
 import type { Card } from "@/lib/types";
 
 export interface DeckEntry {
@@ -49,12 +46,11 @@ export function DeckCardItem({
         className="block w-full cursor-pointer rounded-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-action"
       >
         <div className="relative aspect-card w-full overflow-hidden rounded-xl border border-line bg-panel shadow-md transition-shadow duration-150 group-hover:shadow-xl">
-          <Image
+          <img
             src={card.imageUrl}
             alt={card.name}
-            fill
-            sizes="(max-width: 640px) 45vw, 220px"
-            className="object-cover"
+            loading="lazy"
+            className="absolute inset-0 h-full w-full object-cover"
           />
         </div>
       </button>

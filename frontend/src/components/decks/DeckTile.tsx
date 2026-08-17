@@ -1,6 +1,3 @@
-"use client";
-
-import Image from "next/image";
 import type { Card, SavedDeck } from "@/lib/types";
 
 export function deckCardCount(deck: SavedDeck): number {
@@ -39,12 +36,11 @@ export function DeckTile({
             {commander ? (
               // Full card art cropped to a banner; nudge upward so the art
               // box (not the title bar) fills the frame.
-              <Image
+              <img
                 src={commander.imageUrl}
                 alt=""
-                fill
-                sizes="(max-width: 640px) 90vw, (max-width: 1024px) 45vw, 300px"
-                className="object-cover object-[center_20%]"
+                loading="lazy"
+                className="absolute inset-0 h-full w-full object-cover object-[center_20%]"
               />
             ) : (
               <div className="flex h-full items-center justify-center text-ink-muted/50">

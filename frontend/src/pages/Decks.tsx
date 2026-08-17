@@ -1,7 +1,5 @@
-"use client";
-
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useNavigate } from "react-router";
 import { MAX_DECKS, type Card, type SavedDeck } from "@/lib/types";
 import { deleteDeck, getCardsByIds, listDecks } from "@/lib/api";
 import {
@@ -28,8 +26,8 @@ function DeckGridSkeleton() {
   );
 }
 
-export default function DecksPage() {
-  const router = useRouter();
+export function Decks() {
+  const navigate = useNavigate();
   const [decks, setDecks] = useState<SavedDeck[] | null>(null);
   const [commanders, setCommanders] = useState<Record<string, Card>>({});
 
@@ -71,9 +69,9 @@ export default function DecksPage() {
         commanderId: deck.commanderId,
         cards: Object.fromEntries(deck.cards.map((c) => [c.cardId, c.quantity])),
       });
-      router.push("/deck-builder");
+      navigate("/deck-builder");
     },
-    [router],
+    [navigate],
   );
 
   const createDeck = useCallback(() => {
@@ -87,8 +85,8 @@ export default function DecksPage() {
       return;
     }
     saveWorkingDeck(EMPTY_WORKING_DECK);
-    router.push("/deck-builder");
-  }, [router]);
+    navigate("/deck-builder");
+  }, [navigate]);
 
   const handleDelete = useCallback((deck: SavedDeck) => {
     if (!window.confirm(`Delete “${deck.name}”? This cannot be undone.`)) return;

@@ -1,5 +1,3 @@
-"use client";
-
 import type { Card } from "@/lib/types";
 import { DeckCardItem, type DeckEntry } from "./DeckColumn";
 

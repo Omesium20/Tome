@@ -1,5 +1,3 @@
-"use client";
-
 import { useCallback, useMemo, useState } from "react";
 import type { LibraryCard } from "@/lib/types";
 import { useCollection } from "@/lib/hooks/useCollection";
@@ -16,7 +14,7 @@ import {
   type CollectionFilters,
 } from "@/lib/filter-cards";
 
-export default function CollectionPage() {
+export function Collection() {
   const { collection, error: loadError, mutate } = useCollection();
   const [filters, setFilters] = useState<CollectionFilters>(DEFAULT_FILTERS);
   const [previewCard, setPreviewCard] = useState<LibraryCard | null>(null);

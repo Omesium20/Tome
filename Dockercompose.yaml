@@ -35,10 +35,12 @@ services:
     build:
       context: ./frontend
       args:
-        # Browser code runs on the host, not inside Docker's network, so this has to
-        # be the published host port/localhost — not the `backend` service name.
-        NEXT_PUBLIC_API_BASE_URL: http://localhost:8000
-        NEXT_PUBLIC_USE_MOCKS: "false"
+        # Build args, not `environment:` — Vite inlines VITE_* into the bundle at
+        # build time. Browser code runs on the host, not inside Docker's network,
+        # so this has to be the published host port/localhost — not the `backend`
+        # service name.
+        VITE_API_BASE_URL: http://localhost:8000
+        VITE_USE_MOCKS: "false"
     depends_on:
       - backend
     ports:
