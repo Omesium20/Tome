@@ -4,10 +4,10 @@ Full detail behind the high-level summary in `CLAUDE.md`. Source of truth for sc
 
 ## System Overview
 
-Two independent pipelines share a Next.js frontend, a FastAPI backend, and a ChromaDB vector store.
+Two independent pipelines share a Vite + React frontend, a FastAPI backend, and a ChromaDB vector store.
 
 ```
-                    Next.js
+                  Vite + React
                        |
                    FastAPI
                        |
@@ -76,14 +76,20 @@ As scaffolded. Frontend conventions (mock layer, shared filter code, DnD contrac
 
 ```
 project/
-  frontend/                        Next.js 14 (App Router), React, TypeScript, Tailwind
+  frontend/                        Vite 5, React 18, React Router 7, TypeScript, Tailwind
+    index.html                     entry document: title/description, favicon
+    vite.config.ts                 plugins, @/* alias, dev port 3000, vitest config
+    nginx.conf                     container-only: SPA fallback for client-side routes
     src/
-      app/
-        layout.tsx                 root shell: theme, Inter font, side navigation
-        page.tsx                   landing page
-        collection/page.tsx        /collection — Arena-style grid of owned cards
-        deck-builder/page.tsx      /deck-builder — role-column deck board, AI generation
-        decks/page.tsx             /decks — saved-deck grid, 100-deck cap, create/open/delete
+      main.tsx                     mounts <BrowserRouter>, global CSS, Inter font
+      App.tsx                      app shell (sidebar) + the route table
+      pages/                       one named-export component per route
+        Home.tsx                   / — landing page
+        Collection.tsx             /collection — Arena-style grid of owned cards
+        DeckBuilder.tsx            /deck-builder — role-column deck board, AI generation
+        Decks.tsx                  /decks — saved-deck grid, 100-deck cap, create/open/delete
+      styles/
+        globals.css                Tailwind layers, dark color-scheme, --font-inter
       components/
         collection/                CollectionGrid, CardTile, CollectionToolbar,
                                    CollectionFilterControls, CardPreviewModal,
@@ -97,7 +103,7 @@ project/
         ui/                        shared primitives: ManaPips, SideNav
       lib/
         types.ts                   TS mirror of the data model (docs/data-model.md)
-        api.ts                     single backend gateway; mock switch (NEXT_PUBLIC_USE_MOCKS)
+        api.ts                     single backend gateway; mock switch (VITE_USE_MOCKS)
         filter-cards.ts            shared collection filter/sort logic
         working-deck.ts            deck builder's in-progress deck (localStorage),
                                    shared with /decks for open/create handoff

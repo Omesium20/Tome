@@ -39,7 +39,7 @@ Which doc to open for a given topic. `PRD.md`, `docs/architecture.md`, and `docs
 | [docs/architecture.md](docs/architecture.md) | system overview diagram · Knowledge Pipeline stages · Deck Generation Pipeline stages · Claude vs. backend division of responsibility · project/module structure |
 | [docs/data-model.md](docs/data-model.md) | entity schemas — Card, CardMetadata, Collection, Deck, DeckCard |
 | [docs/knowledge-pipeline.md](docs/knowledge-pipeline.md) | Scryfall Importer — bulk data API, card schema → `Card` field mapping, card faces/DFCs, legalities, rate limits |
-| [docs/frontend.md](docs/frontend.md) | mock backend layer & `NEXT_PUBLIC_USE_MOCKS` switch · working-deck vs. saved-deck handoff · shared collection filter logic/UI · drag-and-drop contract · design tokens · dev gotchas |
+| [docs/frontend.md](docs/frontend.md) | routing & app shell · mock backend layer & `VITE_USE_MOCKS` switch · working-deck vs. saved-deck handoff · shared collection filter logic/UI · drag-and-drop contract · design tokens · dev gotchas |
 
 ---
 
@@ -47,7 +47,7 @@ Which doc to open for a given topic. `PRD.md`, `docs/architecture.md`, and `docs
 
 | Layer | Technology | Responsibility |
 |---|---|---|
-| Frontend | Next.js, React, TypeScript, Tailwind CSS | UI, collection management, card selection, deck display |
+| Frontend | Vite, React, React Router, TypeScript, Tailwind CSS | UI, collection management, card selection, deck display |
 | Backend | Python, FastAPI | API endpoints, AI orchestration, deck validation, collection management, pipeline execution |
 | AI framework | LangChain | Retrieval, prompt construction, Claude API management, output parsing |
 | LLM | Anthropic Claude API | Card analysis, deck strategy, commander selection, deck construction, explanations |
@@ -61,27 +61,28 @@ Which doc to open for a given topic. `PRD.md`, `docs/architecture.md`, and `docs
 
 Both sides are scaffolded. The frontend is a working UI running against a mock backend layer (see `docs/frontend.md`); the backend has real module structure but its route handlers and pipeline steps are still `NotImplementedError` stubs.
 
-```
-Dev server — `fastapi dev` takes a direct file path, so run it from `backend/api/` instead:
-```
-cd backend/api
-fastapi dev main.py   # local dev server on :8000 (routes are stubs)
-```
-
-**Frontend (`frontend/`, Next.js)** — all verified working:
+**Frontend (`frontend/`, Vite + React SPA)** — all verified working:
 ```
 npm install
 npm run dev       # local dev server on :3000
-npm run build     # production build — do NOT run while `npm run dev` is up (corrupts .next/)
+npm run build     # type-check + production build to dist/
+npm run start     # preview the production build
 npm run lint
-npm test          # vitest
-npx tsc --noEmit  # type-check (safe alongside the dev server, unlike build)
+npm test          # vitest (jsdom)
+npx tsc --noEmit  # type-check only
 ```
 
 **Backend (`backend/`, FastAPI)** — run from `backend/` (imports and `pytest.ini` assume it as root; a `.venv` lives there):
 ```
 pip install -r requirements.txt
-pytest                          # test suite
+pytest            # test suite
+```
+
+Dev server — `fastapi dev` takes a direct file path, so run it from `backend/api/` instead:
+```
+cd backend/api
+fastapi dev main.py   # local dev server on :8000 (routes are stubs)
+```
 
 **Knowledge Pipeline (offline; all steps are stubs)** — from `backend/`:
 ```
@@ -90,6 +91,39 @@ python -m knowledge_pipeline.metadata_generator
 python -m knowledge_pipeline.document_generator
 python -m knowledge_pipeline.embeddings
 ```
+
+---
+
+## Docker
+
+Three containers (`frontend` nginx :3000 · `backend` FastAPI :8000 · `db` Postgres :5432), defined in `Dockercompose.yaml` at the repo root. Postgres data persists in the named volume `pgdata`.
+
+**Two things to know before the first run:**
+- The compose file is **not** a name Docker auto-discovers (it looks for `compose.yaml`/`docker-compose.yaml`), so **every command needs `-f Dockercompose.yaml`**.
+- Copy `.env.example` → `.env` at the repo root first; compose reads the `POSTGRES_*` values from it.
+
+```
+# Normal start — keeps existing database data. The default day-to-day command.
+docker compose -f Dockercompose.yaml up --build
+
+# Clean start — destroys the pgdata volume first, for testing against an empty DB.
+docker compose -f Dockercompose.yaml down -v && docker compose -f Dockercompose.yaml up --build
+
+# Stop (containers removed, volume kept)
+docker compose -f Dockercompose.yaml down
+
+# Rebuild/run one service
+docker compose -f Dockercompose.yaml build frontend
+docker compose -f Dockercompose.yaml up -d backend
+
+# Inspect
+docker compose -f Dockercompose.yaml ps
+docker compose -f Dockercompose.yaml logs -f backend
+docker compose -f Dockercompose.yaml exec db psql -U tome -d tome
+docker compose -f Dockercompose.yaml config --quiet   # validate the file; silence = valid
+```
+
+`VITE_*` values are **build args, not runtime env** — Vite inlines them at build time, so changing them requires `--build` to take effect (see `docs/frontend.md`). Compose sets `VITE_USE_MOCKS=false`, so the containerized frontend talks to the real backend, unlike `npm run dev`.
 
 ---
 

@@ -179,7 +179,7 @@ Runs when users request decks.
 # High-Level Architecture
 
 ```
-                    Next.js
+                  Vite + React
                        |
                        |
                    FastAPI
@@ -201,8 +201,9 @@ Runs when users request decks.
 
 ## Frontend
 
-- Next.js
+- Vite
 - React
+- React Router
 - TypeScript
 
 Responsibilities:
@@ -687,8 +688,9 @@ project/
 
 frontend/
 
-    Next.js
+    Vite
     React
+    React Router
     TypeScript
 
 
