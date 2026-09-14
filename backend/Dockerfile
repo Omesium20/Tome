@@ -16,4 +16,16 @@ COPY . .
 
 EXPOSE 8000
 
+# Bring the schema up to date before whatever command runs, so a self-hoster
+# who pulls a new version gets the migration applied without a manual step.
+#
+# This is ENTRYPOINT rather than part of CMD on purpose: Dockercompose.dev.yaml
+# overrides `command:` to run `fastapi dev`, and an override replaces CMD but
+# not ENTRYPOINT — so dev containers stay migrated too.
+#
+# `sh -c '... exec "$@"' --` runs the migration, then replaces the shell with
+# CMD (or the compose override), keeping the server as PID 1 so signals and
+# graceful shutdown still work.
+ENTRYPOINT ["sh", "-c", "alembic upgrade head && exec \"$@\"", "--"]
+
 CMD ["fastapi", "run", "api/main.py", "--port", "8000"]

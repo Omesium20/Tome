@@ -18,6 +18,13 @@ export default defineConfig({
     // Vite defaults to 5173; 3000 keeps parity with the port the app has always
     // run on and with the mapping in Dockercompose.yaml.
     port: 3000,
+    watch: {
+      // Bind mounts into Docker (Dockercompose.dev.yaml) don't propagate native
+      // filesystem change events on Windows, so HMR silently never fires unless
+      // the watcher polls instead. Left off for local `npm run dev`, where native
+      // events work fine and polling would just burn CPU.
+      usePolling: process.env.DOCKER_DEV === "true",
+    },
   },
   test: {
     environment: "jsdom",

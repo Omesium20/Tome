@@ -43,9 +43,12 @@ tome.db
 *.sqlite3
 chroma_data/
 chroma_db/
-# Scryfall bulk downloads are hundreds of MB of JSON.
-data/scryfall/
+# Scryfall bulk downloads: ~24 MB gzipped per snapshot, and one is kept per
+# snapshot date. `**/` matters — the importer caches under backend/data/scryfall,
+# and a pattern containing a slash is otherwise anchored to the repo root.
+**/data/scryfall/
 *.bulk.json
+*.jsonl.gz
 # Hugging Face sentence-transformer weights, if cached in-repo.
 .cache/
 models/

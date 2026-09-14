@@ -1,0 +1,53 @@
+# Dev override: live-reload for testing inside the containers.
+# Bind-mounts host source into backend/frontend and swaps the production
+# commands (`fastapi run`, the built static nginx bundle) for the same
+# auto-reloading dev servers used outside Docker (`fastapi dev`, `vite`), so
+# saved edits show up without re-running `--build`.
+#
+# Usage — layer this on top of the base file, base first:
+#   docker compose -f Dockercompose.yaml -f Dockercompose.dev.yaml up --build
+#
+# (Only needed once per dependency change, i.e. requirements.txt/package.json —
+# code-only edits after that just need a save.)
+
+services:
+  # Web GUI for the Postgres db service. No setup needed beyond the login
+  # form: System = PostgreSQL, Server = db, Username/Password/Database =
+  # whatever's in backend/.env (POSTGRES_USER/PASSWORD/DB, default tome/changeme/tome).
+  adminer:
+    image: adminer
+    ports:
+      - "8080:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  backend:
+    volumes:
+      - ./backend:/code
+      # Masks the host's Windows backend/.venv (unusable inside the Linux
+      # container anyway — deps are installed into the image's system Python)
+      # so it isn't dragged across the slow Windows<->container file bridge.
+      - /code/.venv
+    environment:
+      # watchfiles (fastapi dev's reload watcher) has the same bind-mount
+      # limitation as Vite's watcher below — force polling so edits are seen.
+      WATCHFILES_FORCE_POLLING: "true"
+    command: ["fastapi", "dev", "api/main.py", "--host", "0.0.0.0", "--port", "8000"]
+
+  frontend:
+    build:
+      target: dev
+    volumes:
+      - ./frontend:/app
+      # Masks the host's node_modules (built for Windows, not Linux) with the
+      # image's own, so the bind mount above doesn't shadow it.
+      - /app/node_modules
+    environment:
+      DOCKER_DEV: "true"
+      VITE_API_BASE_URL: http://localhost:8000
+      # Real backend routes (collection/decks CRUD, cards lookup) aren't
+      # implemented yet — see Dockercompose.yaml. Vite's dev server reads
+      # VITE_* from the environment at request time, so these are plain env
+      # vars here rather than build args.
+      VITE_USE_MOCKS: "true"

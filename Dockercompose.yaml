@@ -30,6 +30,10 @@ services:
         condition: service_healthy
     ports:
       - "8000:8000"
+    volumes:
+      # Keeps the ~24 MB Scryfall bulk download across container rebuilds, so
+      # re-running the importer doesn't re-fetch a snapshot it already has.
+      - scryfall_cache:/code/data/scryfall
 
   frontend:
     build:
@@ -40,7 +44,9 @@ services:
         # so this has to be the published host port/localhost — not the `backend`
         # service name.
         VITE_API_BASE_URL: http://localhost:8000
-        VITE_USE_MOCKS: "false"
+        # Real backend routes (collection/decks CRUD, cards lookup) aren't
+        # implemented yet — flip to "false" once those exist.
+        VITE_USE_MOCKS: "true"
     depends_on:
       - backend
     ports:
@@ -48,3 +54,4 @@ services:
 
 volumes:
   pgdata:
+  scryfall_cache:

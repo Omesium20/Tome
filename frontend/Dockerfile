@@ -10,6 +10,22 @@ COPY package.json package-lock.json ./
 RUN npm ci
 
 # ============================================
+# Stage 1b: dev server (live reload, used by Dockercompose.dev.yaml)
+# ============================================
+FROM node:20-slim AS dev
+
+WORKDIR /app
+
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+
+EXPOSE 3000
+
+# --host so the dev server listens on all interfaces, not just localhost
+# inside the container — otherwise Docker's port mapping can't reach it.
+CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
+
+# ============================================
 # Stage 2: build the app
 # ============================================
 FROM node:20-slim AS builder
