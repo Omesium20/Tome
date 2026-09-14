@@ -36,7 +36,7 @@ Scryfall → Card Import → Claude Metadata Generation → Normalized Database
   → Knowledge Document Generation → Hugging Face Embeddings → ChromaDB
 ```
 
-1. **Card Import** — pull card data from the Scryfall Bulk Data API (oracle text, mana cost, color identity, types, legalities).
+1. **Card Import** — pull card data from the Scryfall Bulk Data API (oracle text, mana cost, color identity, types, legalities). Implemented; **not format-scoped by default** — Commander-legal cards are 96.5% of the entire pool, so filtering at import time saves almost nothing. The full corpus is imported with its complete legality map, and format becomes a filter downstream, at the per-card AI stages where pool size actually costs time and money — see `knowledge-pipeline.md#scryfall-importer`.
 2. **Claude Metadata Generation** — Claude analyzes each card and generates strategic metadata (roles, themes, game stage, power rating, strengths/weaknesses, synergy tags). See `data-model.md` for the `CardMetadata` shape.
 3. **Normalized Database** — Card + CardMetadata persisted as the source of truth.
 4. **Knowledge Document Generation** — a natural-language document is generated per card from its Card + CardMetadata (not hand-written Markdown).
@@ -112,11 +112,22 @@ project/
         tests/                     vitest suite
 
   backend/                         Python, FastAPI (routes exist; handlers are stubs)
+    config.py                      all env-backed settings (pydantic-settings), loads backend/.env
+    logging_config.py              configure_logging(), called once per entry point
+    alembic.ini                    URL comes from config.py, not this file
+    alembic/                       migrations; `alembic upgrade head` applies them
     api/
       main.py                      app entry, CORS for localhost:3000, /health
-      routes/                      collection.py, cards.py, decks.py
+      schemas.py                   response models
+      routes/                      cards.py, collection.py, deck_builder.py, deck_collection.py
     knowledge_pipeline/
-      scryfall_importer.py
+      scryfall_importer/           implemented — Scryfall bulk import
+        bulk.py                    catalog, download, streamed gzip/JSONL
+        formats.py                 FormatProfile + PROFILES registry
+        mapping.py                 Scryfall JSON -> CardRow, face merging
+        sink.py                    batched upsert, prune, reset
+        pipeline.py                import_cards() orchestrator
+        __main__.py                CLI + interactive format picker
       metadata_generator.py
       document_generator.py
       embeddings.py
