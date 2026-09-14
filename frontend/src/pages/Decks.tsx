@@ -30,23 +30,44 @@ export function Decks() {
   const navigate = useNavigate();
   const [decks, setDecks] = useState<SavedDeck[] | null>(null);
   const [commanders, setCommanders] = useState<Record<string, Card>>({});
+  const [loadError, setLoadError] = useState(false);
+  const [loadAttempt, setLoadAttempt] = useState(0);
 
   useEffect(() => {
-    void listDecks().then(async (loaded) => {
-      setDecks(loaded);
-      const ids = Array.from(
-        new Set(
-          loaded
-            .map((d) => d.commanderId)
-            .filter((id): id is string => id !== null),
-        ),
-      );
-      if (ids.length > 0) {
-        const cards = await getCardsByIds(ids);
-        setCommanders(Object.fromEntries(cards.map((c) => [c.id, c])));
-      }
-    });
-  }, []);
+    let cancelled = false;
+    setLoadError(false);
+
+    void listDecks()
+      .then(async (loaded) => {
+        if (cancelled) return;
+        setDecks(loaded);
+        const ids = Array.from(
+          new Set(
+            loaded
+              .map((d) => d.commanderId)
+              .filter((id): id is string => id !== null),
+          ),
+        );
+        if (ids.length > 0) {
+          const cards = await getCardsByIds(ids);
+          if (cancelled) return;
+          setCommanders(Object.fromEntries(cards.map((c) => [c.id, c])));
+        }
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        // Distinct from the "genuinely no decks" empty state below —
+        // decks stays null so we don't render zero decks as a fact we know.
+        console.error("Failed to load decks", err);
+        setLoadError(true);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [loadAttempt]);
+
+  const retryLoad = useCallback(() => setLoadAttempt((n) => n + 1), []);
 
   const atCap = (decks?.length ?? 0) >= MAX_DECKS;
 
@@ -110,9 +131,47 @@ export function Decks() {
         )}
       </div>
 
-      {decks === null ? (
-        <DeckGridSkeleton />
-      ) : (
+      {loadError && (
+        <div className="flex min-h-[50vh] items-center justify-center">
+          <div className="mx-auto max-w-md rounded-xl border border-line bg-panel p-8 text-center">
+            <h2 className="text-lg font-medium">Couldn't load your decks</h2>
+            <p className="mt-2 text-sm text-ink-muted">
+              Something went wrong reaching the server. Your decks are still
+              there — this is just a connection problem.
+            </p>
+            <button
+              type="button"
+              onClick={retryLoad}
+              className="mt-6 cursor-pointer rounded-lg bg-action px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-action/85 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-action"
+            >
+              Try again
+            </button>
+          </div>
+        </div>
+      )}
+
+      {!loadError && decks === null && <DeckGridSkeleton />}
+
+      {!loadError && decks !== null && decks.length === 0 && (
+        <div className="flex min-h-[50vh] items-center justify-center">
+          <div className="mx-auto max-w-md rounded-xl border border-line bg-panel p-8 text-center">
+            <h2 className="text-lg font-medium">You have no decks</h2>
+            <p className="mt-2 text-sm text-ink-muted">
+              Create one here or build a deck in the deck builder and save it
+              — it will show up in this list.
+            </p>
+            <button
+              type="button"
+              onClick={createDeck}
+              className="mt-6 cursor-pointer rounded-lg bg-action px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-action/85 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-action"
+            >
+              New deck
+            </button>
+          </div>
+        </div>
+      )}
+
+      {!loadError && decks !== null && decks.length > 0 && (
         <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-4">
           {decks.map((deck) => (
             <DeckTile
@@ -142,13 +201,6 @@ export function Decks() {
             )}
           </button>
         </div>
-      )}
-
-      {decks !== null && decks.length === 0 && (
-        <p className="mx-auto mt-8 max-w-md text-center text-sm leading-relaxed text-ink-muted">
-          No saved decks yet. Create one here or build a deck in the deck
-          builder and save it — it will show up in this list.
-        </p>
       )}
     </main>
   );
