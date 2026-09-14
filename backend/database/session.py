@@ -1,12 +1,11 @@
-import os
 from collections.abc import Iterator
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
-DATABASE_URL = os.environ.get("DATABASE_URL", "sqlite:///./tome.db")
+from config import get_settings
 
-engine = create_engine(DATABASE_URL)
+engine = create_engine(get_settings().database_url)
 SessionLocal = sessionmaker(bind=engine)
 
 

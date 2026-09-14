@@ -4,21 +4,26 @@ The application treats Magic knowledge as structured data first, AI reasoning se
 
 ## Card
 
-Source of truth, imported directly from Scryfall. Never AI-generated.
+Source of truth, imported directly from Scryfall. Never AI-generated. Written by the Scryfall importer — see `knowledge-pipeline.md#scryfall-importer` for the field-by-field mapping and the multi-faced-card merge rules.
 
 | Field | Notes |
 |---|---|
-| id | |
-| oracle_id | |
-| name | |
-| mana_cost | |
+| **oracle_id** | **primary key.** Stable across reprints — see below |
+| scryfall_id | the printing Scryfall picked for this oracle id. For images and permalinks; not an identity, and expected to change over time |
+| name | multi-faced cards use both face names joined with `" // "` |
+| mana_cost | **nullable** — absent at the card root on multi-faced layouts, and lands have none |
 | mana_value | |
-| oracle_text | |
+| oracle_text | **nullable** — vanilla creatures genuinely have none. Multi-faced cards store both faces, labelled by face name |
 | colors | |
 | color_identity | used for Commander legality checks |
 | type_line | |
 | keywords | |
-| image_url | |
+| image_url | **nullable**. Front face for multi-faced cards |
+| layout | Scryfall's shape discriminator (`normal`, `transform`, `modal_dfc`, `split`, …) |
+| legalities | the full Scryfall legality map, e.g. `{"commander": "legal", "standard": "not_legal"}`. One column rather than a boolean per format, so a new format upstream needs no migration |
+| updated_at | when the importer last wrote this row |
+
+**The primary key is `oracle_id`, not Scryfall's printing `id`.** The `oracle_cards` bulk file returns whichever printing is currently "most recognizable" for each oracle id, and that choice changes when a card is reprinted. Keying on the printing id would rotate the primary key on an ordinary refresh and orphan every collection and deck row referencing it. All four foreign keys below therefore target `cards.oracle_id`.
 
 ## CardMetadata
 
@@ -73,6 +78,26 @@ Cards inside a saved deck.
 | owned | whether the user already owns this card |
 | proxy | whether this card is recommended as a proxy |
 
+## ImportRun
+
+One execution of the Scryfall importer. Exists so a scheduled refresh can skip a snapshot it has already consumed (`--if-newer`), and so an operator can see what a past import did.
+
+| Field | Notes |
+|---|---|
+| id | autoincrement |
+| bulk_type | which Scryfall bulk file, e.g. `oracle_cards` |
+| format_profile | the pool this run imported, e.g. `all` or `commander` |
+| source_updated_at | Scryfall's own timestamp for the snapshot consumed |
+| cards_seen / cards_written / cards_skipped / cards_pruned | counts |
+| started_at | |
+| finished_at | nullable — still null while a run is in flight or if it failed |
+
+A `--dry-run` deliberately writes no row, so it can't cause the next real import to be skipped.
+
 ---
 
-Keep this file in sync with the actual ORM models/migrations once the database layer is implemented — this is the intended shape, not necessarily the literal schema.
+Schema changes are managed by Alembic (`backend/alembic/`); `alembic upgrade head` applies them, and the backend container runs it on start. Keep this file in sync with `backend/database/models.py` and the migrations — where they disagree, the code is right and this file is the bug.
+
+### Known drift
+
+`backend/database/models.py` is still behind this document in three places, unrelated to the importer: `Deck` has no `name` and no `updated_at`, its `commander_id` is non-nullable, and `DeckCard` has no `quantity`. These want a migration when the deck routes are implemented.

@@ -1,21 +1,16 @@
-from pathlib import Path
-
-from dotenv import load_dotenv
-
-load_dotenv(Path(__file__).resolve().parent.parent / ".env")
-
 import logging
 
 from fastapi import APIRouter, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+# config reads backend/.env itself, so no load_dotenv preamble is needed here
+# and the knowledge-pipeline entry points get the same values this one does.
+from config import APP_VERSION
 from logging_config import configure_logging
 from api.routes import cards, collection, deck_builder, deck_collection
 
 configure_logging()
 logger = logging.getLogger(__name__)
-
-APP_VERSION = "0.1.0"
 
 app = FastAPI(root_path="/api/v1", title="Tome API", version=APP_VERSION)
 logger.info("Tome API starting up")

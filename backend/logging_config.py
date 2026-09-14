@@ -13,8 +13,9 @@ module, and messages propagate up to the root logger configured below.
 """
 
 import logging
-import os
 import sys
+
+from config import get_settings
 
 _CONFIGURED = False
 
@@ -24,7 +25,7 @@ def configure_logging() -> None:
     if _CONFIGURED:
         return
 
-    level_name = os.environ.get("LOG_LEVEL", "WARNING").upper()
+    level_name = get_settings().log_level.upper()
     level = getattr(logging, level_name, logging.INFO)
 
     handler = logging.StreamHandler(sys.stdout)
