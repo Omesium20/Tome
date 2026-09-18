@@ -26,6 +26,41 @@ NORMAL_CARD = {
     "legalities": {"commander": "legal", "standard": "not_legal"},
 }
 
+# A vanilla creature carries power/toughness at the root, same as any other
+# root-only field.
+CREATURE_CARD = {
+    "id": "eeee",
+    "oracle_id": "oracle-hellraiser",
+    "name": "Orcish Hellraiser",
+    "layout": "normal",
+    "mana_cost": "{1}{R}",
+    "cmc": 2.0,
+    "type_line": "Creature — Orc Warrior",
+    "oracle_text": "Echo {R}",
+    "power": "3",
+    "toughness": "2",
+    "colors": ["R"],
+    "color_identity": ["R"],
+    "keywords": ["Echo"],
+    "legalities": {"commander": "legal"},
+}
+
+PLANESWALKER_CARD = {
+    "id": "ffff",
+    "oracle_id": "oracle-walker",
+    "name": "Test Planeswalker",
+    "layout": "normal",
+    "mana_cost": "{3}{U}",
+    "cmc": 4.0,
+    "type_line": "Legendary Planeswalker — Test",
+    "oracle_text": "+1: ...",
+    "loyalty": "5",
+    "colors": ["U"],
+    "color_identity": ["U"],
+    "keywords": [],
+    "legalities": {"commander": "legal"},
+}
+
 # Transform cards put everything except cmc/color_identity on the faces.
 TRANSFORM_CARD = {
     "object": "card",
@@ -43,6 +78,8 @@ TRANSFORM_CARD = {
             "mana_cost": "{1}{R}",
             "type_line": "Creature — Human Werewolf",
             "oracle_text": "At the beginning of each upkeep, transform...",
+            "power": "1",
+            "toughness": "1",
             "colors": ["R"],
             "image_uris": {"normal": "https://cards.scryfall.io/normal/front/h.jpg"},
         },
@@ -51,6 +88,10 @@ TRANSFORM_CARD = {
             # The back face of a transform card has no mana cost.
             "type_line": "Creature — Werewolf",
             "oracle_text": "Hinterland Scourge must be blocked if able.",
+            # Deliberately different from the front face's stats, so the test
+            # can tell "front face" apart from "any face"/"last face".
+            "power": "3",
+            "toughness": "3",
             "colors": ["R"],
             "image_uris": {"normal": "https://cards.scryfall.io/normal/back/h.jpg"},
         },
@@ -103,6 +144,36 @@ def test_transform_card_uses_front_face_image_and_mana_cost():
     # Only the front face has a mana cost, so no " // " join happens.
     assert row.mana_cost == "{1}{R}"
     assert row.image_url == "https://cards.scryfall.io/normal/front/h.jpg"
+
+
+def test_creature_reads_power_and_toughness_from_root():
+    row = to_card_row(CREATURE_CARD)
+
+    assert row is not None
+    assert row.power == "3"
+    assert row.toughness == "2"
+    assert row.loyalty is None
+    assert row.defense is None
+
+
+def test_planeswalker_reads_loyalty_from_root():
+    row = to_card_row(PLANESWALKER_CARD)
+
+    assert row is not None
+    assert row.loyalty == "5"
+    assert row.power is None
+    assert row.toughness is None
+
+
+def test_transform_card_uses_front_face_power_and_toughness():
+    row = to_card_row(TRANSFORM_CARD)
+
+    assert row is not None
+    # The two faces have different stats (1/1 front, 3/3 back) — unlike
+    # oracle_text, these aren't merged, and the front face's numbers are
+    # the ones that apply while the card hasn't transformed.
+    assert row.power == "1"
+    assert row.toughness == "1"
 
 
 def test_split_card_joins_mana_costs():

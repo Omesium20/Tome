@@ -52,6 +52,10 @@ class CardRow:
     colors: list[str]
     color_identity: list[str]
     type_line: str
+    power: str | None
+    toughness: str | None
+    loyalty: str | None
+    defense: str | None
     keywords: list[str]
     image_url: str | None
     layout: str
@@ -69,6 +73,10 @@ class CardRow:
             "colors": self.colors,
             "color_identity": self.color_identity,
             "type_line": self.type_line,
+            "power": self.power,
+            "toughness": self.toughness,
+            "loyalty": self.loyalty,
+            "defense": self.defense,
             "keywords": self.keywords,
             "image_url": self.image_url,
             "layout": self.layout,
@@ -130,6 +138,28 @@ def _merged_colors(card: dict) -> list[str]:
     return seen
 
 
+def _root_or_front_face(card: dict, key: str) -> str | None:
+    """Read ``key`` from the root, falling back to the front face's value.
+
+    Unlike oracle_text/mana_cost, power/toughness/loyalty/defense are not
+    merged across faces: a transform creature genuinely has one stat line per
+    side (e.g. a 1/1 front and a 3/3 back), so joining them would produce a
+    meaningless value rather than a merged one. The front face's stats are
+    the ones that apply while the card isn't transformed, matching the
+    front-face convention `_image_url` already uses.
+    """
+    root = card.get(key)
+    if root not in (None, ""):
+        return root
+
+    faces = _faces(card)
+    if faces:
+        value = faces[0].get(key)
+        if value not in (None, ""):
+            return value
+    return None
+
+
 def _image_url(card: dict) -> str | None:
     images = card.get("image_uris") or {}
     if images.get("normal"):
@@ -176,6 +206,10 @@ def to_card_row(card: dict, *, imported_at: datetime | None = None) -> CardRow |
         colors=_merged_colors(card),
         color_identity=list(card.get("color_identity") or []),
         type_line=type_line,
+        power=_root_or_front_face(card, "power"),
+        toughness=_root_or_front_face(card, "toughness"),
+        loyalty=_root_or_front_face(card, "loyalty"),
+        defense=_root_or_front_face(card, "defense"),
         keywords=list(card.get("keywords") or []),
         image_url=_image_url(card),
         layout=card.get("layout", "normal"),

@@ -34,6 +34,13 @@ class Card(Base):
     colors: Mapped[list[str]] = mapped_column(JSON)
     color_identity: Mapped[list[str]] = mapped_column(JSON)
     type_line: Mapped[str]
+    # Nullable: power/toughness are creature (and vehicle) only, loyalty is
+    # planeswalker only, defense is battle only. Stored as Scryfall's raw
+    # string ("*", "1+*" are real values) rather than parsed to a number.
+    power: Mapped[str | None]
+    toughness: Mapped[str | None]
+    loyalty: Mapped[str | None]
+    defense: Mapped[str | None]
     keywords: Mapped[list[str]] = mapped_column(JSON)
     image_url: Mapped[str | None]
     # Scryfall's layout discriminator ("normal", "transform", "modal_dfc", ...).

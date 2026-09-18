@@ -109,7 +109,8 @@ def stale_row() -> CardRow:
     return CardRow(
         oracle_id="oracle-stale", scryfall_id="print-stale", name="Fallen From Grace",
         mana_cost="{1}{B}", mana_value=2.0, oracle_text="Was legal once.",
-        colors=["B"], color_identity=["B"], type_line="Enchantment", keywords=[],
+        colors=["B"], color_identity=["B"], type_line="Enchantment",
+        power=None, toughness=None, loyalty=None, defense=None, keywords=[],
         image_url=None, layout="normal", legalities={"commander": "banned"},
         updated_at=datetime(2026, 1, 1),
     )
