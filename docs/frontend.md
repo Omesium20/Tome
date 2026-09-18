@@ -6,6 +6,8 @@ How the Vite + React frontend (`frontend/`) is organized and the conventions tha
 
 A client-only SPA — there is no server component, and no page needs one (the backend is a separate FastAPI service reached only through `src/lib/api.ts`).
 
+**The frontend talks to the local backend and nothing else.** Tome's card knowledge lives in a hosted service (`docs/knowledge-api.md`), but that is the *local backend's* dependency, never the browser's: `src/lib/api.ts` stays a gateway to `localhost`, and the local backend owns card caching, name resolution, and retrieval. Don't add a second gateway or call the Knowledge API from a component — doing so would leak the user's collection across a boundary the architecture exists to keep closed, and would bypass the local card cache every list view depends on.
+
 - **`index.html`** is the entry document and the only place page metadata lives (`<title>`, description, favicon). There's no per-route metadata API; if a route ever needs its own title, set it in an effect rather than reaching for a helmet library.
 - **`src/main.tsx`** mounts the app inside `<BrowserRouter>` and imports `globals.css` plus the self-hosted Inter font.
 - **`src/App.tsx`** holds the persistent chrome (sidebar + `SideNav`) and the route table. Routes are declared explicitly here — adding a file under `src/pages/` does **not** create a route on its own.

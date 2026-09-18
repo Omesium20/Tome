@@ -42,6 +42,9 @@ The MVP should prove that AI can provide meaningful Commander deck-building assi
 - Proxy-friendly recommendations.
 - Deck validation.
 - Deck explanation.
+- A shared, hosted card knowledge base, built once and served to every user.
+- Bring-your-own-model deck generation: local model or frontier API, user's choice.
+- Local-only storage of the user's collection and decks.
 
 ---
 
@@ -94,7 +97,9 @@ Source:
 - ManaBox export (future)
 - CSV upload (MVP)
 
-The collection is stored locally.
+The collection is stored locally, in a database on the user's own machine, and is never transmitted anywhere.
+
+CSV rows arrive as card *names*; the client resolves them to stable oracle IDs through the Knowledge API, surfacing ambiguous or unmatched names to the user rather than guessing.
 
 ---
 
@@ -150,7 +155,7 @@ The system:
 
 # 5. System Architecture
 
-The system consists of two independent pipelines.
+The system consists of two independent pipelines, split across **two planes with different operators**.
 
 ## Pipeline 1
 
@@ -160,7 +165,9 @@ Purpose:
 
 Prepare Magic card knowledge.
 
-Runs offline.
+Runs offline, **centrally, operated by maintainers**.
+
+Output is one shared card knowledge base, identical for every user.
 
 ---
 
@@ -172,28 +179,53 @@ Purpose:
 
 Build decks using retrieved knowledge.
 
-Runs when users request decks.
+Runs **on the user's own machine**, when they request a deck.
+
+Uses a model the user chooses — local or frontier.
+
+---
+
+# Deployment Model
+
+| | Knowledge plane | Client plane |
+|---|---|---|
+| Operated by | Maintainers (one hosted deployment) | Each user, on their machine |
+| Holds | Every card, its AI analysis, its embedding | One user's collection and decks |
+| Storage | Cloud Postgres + `pgvector` | Local SQLite or Postgres |
+| Written by | The Knowledge Pipeline | The user |
+
+Rationale:
+
+- **Build the knowledge base once.** Card analysis is one model call per card across ~33,000 cards. Making every user run that was the largest barrier to first use. Done centrally, the cost is paid once, prompt fixes land in one place, and every user gets identical retrieval quality.
+- **Generate decks on the client.** Generation is per-user and bursty. Client-side means we host no inference, hold no keys on users' behalf, and see no collections. It is also what makes local models possible.
+- **User data never leaves the machine.** The client asks the Knowledge API about *cards*, never about *the user*.
 
 ---
 
 # High-Level Architecture
 
 ```
-                  Vite + React
-                       |
-                       |
-                   FastAPI
-                       |
-                  LangChain
-                       |
-        --------------------------------
-        |                              |
- Knowledge Pipeline          Deck Generation Pipeline
-        |                              |
-        --------------------------------
-                       |
-                  ChromaDB
+  -- KNOWLEDGE PLANE (hosted, shared, read-only to clients) --
+
+  Scryfall --> Knowledge Pipeline --> Cloud Postgres     --> Knowledge API
+               (offline, maintainer)  + pgvector             (thin read service)
+                                                                    |
+ ===================================================================|=====
+                                                                    | HTTPS
+  -- CLIENT PLANE (the user's machine) --                           v
+
+  Vite + React --> Local FastAPI --> Deck Generation Pipeline --> retrieval
+                        |                      |
+                        |                      v
+                        |            Model Provider interface
+                        |            |- frontier (Anthropic, OpenAI-compatible)
+                        |            |- local    (Ollama, LM Studio, vLLM)
+                        v
+                 Local user database
+                 collection . decks . deck_cards . card_cache
 ```
+
+Technical source of truth: `architecture.md`. The service contract: `knowledge-api.md`. The model interface: `model-providers.md`.
 
 ---
 
@@ -215,7 +247,7 @@ Responsibilities:
 
 ---
 
-## Backend
+## Local Backend (client plane)
 
 - Python
 - FastAPI
@@ -223,59 +255,65 @@ Responsibilities:
 Responsibilities:
 
 - API endpoints.
-- AI orchestration.
+- Deck pipeline orchestration.
 - Deck validation.
 - Collection management.
-- Pipeline execution.
 
 ---
 
-## AI Framework
+## Knowledge API (knowledge plane)
 
-LangChain
+- Python
+- FastAPI, read-only
 
 Responsibilities:
 
-- Retrieval.
-- Prompt construction.
-- Claude API management.
-- Output parsing.
+- Card lookup and name resolution.
+- Candidate retrieval (vector similarity + hard filters).
+- Being the only client-facing entry to the corpus — clients hold no database credentials.
 
 ---
 
 ## Large Language Model
 
-Anthropic Claude API
+User's choice, behind a `ModelProvider` interface:
+
+- Anthropic Claude API (frontier).
+- Any OpenAI-compatible endpoint (OpenAI, OpenRouter, vLLM, LM Studio, gateways).
+- Ollama (local).
 
 Responsibilities:
 
-- Card analysis.
-- Deck strategy.
-- Commander selection.
-- Deck construction.
-- Explanations.
+- Card analysis (knowledge plane, frontier model, run centrally).
+- Deck strategy, commander selection, deck construction, explanations (client plane, user's model).
+
+Swapping providers is a configuration change, not a code change. Deck *correctness* does not depend on which model is used — validation is deterministic local code — only deck *quality* does.
+
+**LangChain is not used.** With retrieval behind an HTTP contract and generation behind our own provider interface, it sat between two abstractions the project already owns.
 
 ---
 
 ## Embedding Model
 
-Hugging Face Sentence Transformer model.
+Hugging Face Sentence Transformer model. Runs **server-side**, in the knowledge plane.
 
 Responsibilities:
 
 - Convert card knowledge documents into vectors.
+- Embed incoming retrieval queries, so clients never download or run the model — and so a corpus and its queries can never drift to different model versions.
 
 ---
 
-## Vector Database
+## Vector Storage
 
-ChromaDB
+`pgvector`, in the same cloud Postgres as the cards.
 
 Responsibilities:
 
-- Store embeddings.
-- Perform similarity searches.
-- Retrieve relevant cards.
+- Store embeddings alongside the cards and metadata they describe.
+- Perform similarity search **and** hard filtering (color identity, format legality) in a single query.
+
+Chosen over a separate ChromaDB instance because centralizing the knowledge base made a second hosted service redundant, and because every real retrieval needs both the vector search and the filters at once.
 
 ---
 
@@ -302,7 +340,7 @@ Provide:
 
 Transform raw Magic card data into AI-readable knowledge.
 
-The pipeline runs offline.
+The pipeline runs offline, centrally, operated by maintainers. Its output is written to the shared cloud Postgres and served to every client through the Knowledge API.
 
 ---
 
@@ -317,11 +355,7 @@ Card Import
 
 ↓
 
-Claude Metadata Generation
-
-↓
-
-Normalized Database
+Model Metadata Generation
 
 ↓
 
@@ -333,8 +367,10 @@ Hugging Face Embeddings
 
 ↓
 
-ChromaDB
+Cloud Postgres + pgvector
 ```
+
+Metadata generation is one model call per card across the whole corpus — the expensive stage that running this centrally exists to spare every user.
 
 ---
 
@@ -429,7 +465,7 @@ Early
 
 # Collection
 
-Tracks owned cards.
+Tracks owned cards. **Local to the user's machine** — `card_id` is a logical reference to a card in the shared knowledge database, which no foreign key can enforce across the plane boundary.
 
 ```
 Collection
@@ -445,7 +481,7 @@ quantity
 
 # Deck
 
-Stores generated decks.
+Stores generated decks. **Local to the user's machine**, like `Collection` and `DeckCard`.
 
 ```
 Deck
@@ -475,6 +511,24 @@ card_id
 owned
 
 proxy
+```
+
+---
+
+# Card Cache
+
+Local display data for cards the client has seen, so rendering a collection is a local read rather than one API call per card. A cache, not a source of truth — deletable and rebuildable from the Knowledge API at any time. It is also what keeps collection browsing and hand-editing decks working while the Knowledge API is unreachable.
+
+```
+CardCache
+
+oracle_id
+
+<card display fields>
+
+snapshot_version
+
+fetched_at
 ```
 
 ---
@@ -523,21 +577,21 @@ Oracle Text:
 Search your library...
 ```
 
-This document is embedded into ChromaDB.
+This document is embedded and stored in the shared knowledge database, alongside the card it describes.
 
 ---
 
-# 10. ChromaDB Structure
+# 10. Knowledge Storage Structure
 
-Each card has:
+Stored in the cloud Postgres, with `pgvector` for the embedding. Each card has:
 
 ## Document
 
 The generated knowledge document.
 
-## Metadata
+## Filter Fields
 
-Example:
+Structured fields that retrieval filters on, in SQL, alongside the similarity search. Example:
 
 ```
 {
@@ -551,7 +605,9 @@ Example:
 
 ## Embedding
 
-Generated by Hugging Face.
+Generated by the Hugging Face model, stored as a `pgvector` column and indexed HNSW with `vector_cosine_ops`.
+
+Because document, filter fields, and embedding live in one table, retrieval is a single query returning candidates that are both semantically similar **and** legal to play — color identity and format legality are hard constraints, not preferences, so filtering them afterward would only shrink the usable candidate list.
 
 ---
 
@@ -591,30 +647,34 @@ Backend analyzes:
 
 Retrieve Candidate Cards
 
-ChromaDB returns:
+The client calls the Knowledge API (`POST /v1/retrieve`). The query is embedded server-side; the response returns:
 
 - Similar cards.
 - Synergistic cards.
 - Supporting cards.
 
+Already filtered server-side by color identity and format legality, which are Commander rules rather than preferences.
+
 Target:
 
 100-200 candidate cards.
+
+This is the only step that leaves the user's machine, and it carries cards — never anything about the user.
 
 ---
 
 ## Step 4
 
-Claude Deck Construction
+Model Deck Construction
 
-Claude receives:
+The configured model provider — local or frontier, the user's choice — receives:
 
 - Selected cards.
 - Candidate cards.
 - User preferences.
 - Commander rules.
 
-Claude determines:
+The model determines:
 
 - Commander.
 - Strategy.
@@ -640,8 +700,10 @@ Python validates:
 
 If invalid:
 
-- Send errors back to Claude.
+- Send errors back to the model.
 - Regenerate.
+
+Bounded retries. After the limit, return the best deck produced plus the specific unresolved violations — never loop forever, and never present an invalid deck as valid.
 
 ---
 
@@ -660,9 +722,9 @@ Frontend displays:
 
 ---
 
-# 12. Claude Responsibilities
+# 12. Model Responsibilities
 
-Claude should:
+The model should:
 
 - Understand strategies.
 - Recommend cards.
@@ -670,14 +732,18 @@ Claude should:
 - Explain decisions.
 - Select commanders.
 
-Claude should not:
+The model should not:
 
 - Search the card database.
 - Validate rules.
 - Track collections.
 - Calculate legality.
 
-Those are backend responsibilities.
+Those are backend responsibilities, enforced in code.
+
+This division is load-bearing now that users may bring a small local model. Retrieval is a filtered query in the knowledge plane; validation is deterministic Python in the client plane. A model that hallucinates an illegal card cannot produce an invalid deck — it produces a validation failure and a repair round.
+
+**Correctness does not depend on model quality; only deck quality does.**
 
 ---
 
@@ -696,31 +762,47 @@ frontend/
 
 backend/
 
+    -- client plane (the user's machine) --
+
     api/
+
+    deck_pipeline/
+
+        retrieval.py          (Knowledge API client)
+        prompt_builder.py
+        generator.py
+        validator.py
+
+    ai/
+
+        provider.py           (ModelProvider interface)
+        providers/
+            anthropic_provider.py
+            openai_compatible.py
+            ollama_provider.py
+
+
+    -- knowledge plane (hosted) --
+
+    knowledge_api/
 
     knowledge_pipeline/
 
-        scryfall_importer.py
+        scryfall_importer/
         metadata_generator.py
         document_generator.py
         embeddings.py
 
 
-    deck_pipeline/
-
-        retrieval.py
-        prompt_builder.py
-        generator.py
-        validator.py
-
-
-    ai/
-
-        claude_client.py
-
+    -- shared --
 
     database/
+
+        knowledge_models.py   (cloud)
+        local_models.py       (client)
 ```
+
+Full module layout: `architecture.md#project-structure`.
 
 ---
 
@@ -731,10 +813,13 @@ The MVP is successful if:
 - A user can select cards.
 - The system understands the strategy.
 - The system retrieves relevant cards.
-- Claude generates a complete Commander deck.
+- The model generates a complete Commander deck.
 - The deck follows Commander rules.
 - The system explains recommendations.
 - The user can identify owned vs missing cards.
+- A new user can generate their first deck without building a knowledge base.
+- A user can generate a deck with a local model and no API key, and the result is still a legal deck.
+- The user's collection and decks never leave their machine.
 
 ---
 
@@ -761,7 +846,7 @@ The Knowledge Pipeline creates reusable understanding of cards.
 
 The Deck Generation Pipeline uses that understanding to make strategic decisions.
 
-Claude is the expert deck builder.
+The model is the expert deck builder.
 
 The backend is responsible for retrieval, validation, and correctness.
 

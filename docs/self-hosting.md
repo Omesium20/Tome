@@ -1,8 +1,19 @@
 # Self-Hosting Tome
 
-Tome is designed to run on your own machine, against your own database, with your own Anthropic API key. Nothing is shared with a hosted service — your collection and decks live in a database you control.
+Tome runs on your own machine. Your collection and your decks live in a database you control and are never transmitted anywhere. Deck generation runs locally, against a model **you** choose — a local model on your own hardware, or a frontier API with your own key.
 
-There are two supported setups: **Docker** (everything bundled) and **local** (bring your own Python and database).
+The one thing you don't have to build yourself is the card knowledge base. Analyzing ~33,000 cards is one model call per card plus a full embedding pass; that work is done once, centrally, and served to every install through the hosted **Knowledge API**. You can still run your own if you want to (see [Running your own knowledge plane](#running-your-own-knowledge-plane)) — you just don't have to.
+
+```
+   hosted by us                          your machine
+   ------------                          ------------
+   Knowledge API   <--- HTTPS ---        Tome client
+   (cards, card analysis,                 - your collection
+    embeddings)                           - your decks
+                                          - your model
+```
+
+What crosses that line: card lookups and retrieval queries. What doesn't: anything about you.
 
 ---
 
@@ -10,11 +21,12 @@ There are two supported setups: **Docker** (everything bundled) and **local** (b
 
 | | Required | Notes |
 |---|---|---|
-| Anthropic API key | yes | From [console.anthropic.com](https://console.anthropic.com/settings/keys). Used for card analysis and deck generation |
-| Database | yes | SQLite works out of the box and needs no setup. Postgres is supported and recommended if you want to run the backend in a container |
-| Disk | ~1 GB | ~24 MB per cached Scryfall snapshot, ~60 MB of card data, plus the embedding model and vector store |
+| A model | yes | Either a local model (free, no key, needs decent hardware) or a frontier API key. See [Choosing a model](#choosing-a-model) |
+| Database | no setup needed | SQLite works out of the box. Postgres is supported and recommended if you run the backend in a container |
+| Disk | ~200 MB | Just the app and a local card cache. The card corpus and the embedding model stay server-side |
+| Network | for generation | Deck generation needs the Knowledge API. Browsing your collection and editing decks by hand work offline from cache |
 
-Card data comes from [Scryfall](https://scryfall.com), which is free and needs no account or key.
+No Scryfall account, key, or bulk download is needed for a normal install — card data reaches you through the Knowledge API.
 
 ---
 
@@ -24,27 +36,20 @@ Everything (frontend, backend, Postgres) comes up with one command.
 
 ```bash
 cp .env.example .env                  # Postgres credentials for compose
-cp backend/.env.example backend/.env  # then add your MODEL_API_KEY
+cp backend/.env.example backend/.env  # then choose your model
 ```
 
-Edit `backend/.env` and set `MODEL_API_KEY`. Change `POSTGRES_PASSWORD` in `.env` from the default.
+Edit `backend/.env` and set your model provider (see [Choosing a model](#choosing-a-model)). Change `POSTGRES_PASSWORD` in `.env` from the default.
 
 ```bash
 docker compose -f Dockercompose.yaml up --build
 ```
 
-The compose file is deliberately not named `compose.yaml`, so **every command needs `-f Dockercompose.yaml`**. The backend applies database migrations automatically on start.
+The compose file is deliberately not named `compose.yaml`, so **every command needs `-f Dockercompose.yaml`**. The backend applies local database migrations automatically on start.
 
-Then import the card pool:
+That's the whole setup — there's no card import step. The first time you browse cards, the client fills its local cache from the Knowledge API.
 
-```bash
-docker compose -f Dockercompose.yaml exec backend \
-  python -m knowledge_pipeline.scryfall_importer --format all
-```
-
-`--format` is required here — there's no terminal for the container to prompt on, so an unattended run without it exits rather than hanging. `all` imports every real card (~33,000); see [Choosing a card pool](#choosing-a-card-pool) for narrower options.
-
-The download is cached in the `scryfall_cache` volume, so rebuilding containers doesn't re-fetch it.
+**If you're using a local model,** note that `localhost` inside a container is the container, not your host. Point `MODEL_BASE_URL` at `http://host.docker.internal:11434` (Docker Desktop on Windows/macOS) rather than `http://localhost:11434`.
 
 ---
 
@@ -58,15 +63,8 @@ python -m venv .venv
 .venv/bin/activate            # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 
-cp .env.example .env          # then add your MODEL_API_KEY
-alembic upgrade head          # create/update the schema
-python -m knowledge_pipeline.scryfall_importer --format commander
-```
-
-The import runs unattended and prints a summary when it finishes:
-
-```
-Import complete (commander): 38,626 read, 31,830 matched, 31,830 written, 94.2s
+cp .env.example .env          # then choose your model
+alembic -n local upgrade head # create/update your local schema
 ```
 
 Then start the API (`fastapi dev` takes a file path, so run it from `backend/api/`):
@@ -77,17 +75,60 @@ cd api && fastapi dev main.py
 
 ### Pointing at your own database
 
-Set `DATABASE_URL` in `backend/.env`:
+Set `LOCAL_DATABASE_URL` in `backend/.env`:
 
 ```
 # SQLite — zero setup, fine for one user
-DATABASE_URL=sqlite:///./tome.db
+LOCAL_DATABASE_URL=sqlite:///./tome.db
 
 # Postgres — anywhere you like: local, a LAN box, a managed host
-DATABASE_URL=postgresql+psycopg://user:password@host:5432/tome
+LOCAL_DATABASE_URL=postgresql+psycopg://user:password@host:5432/tome
 ```
 
-Run `alembic upgrade head` after changing this, to create the schema in the new database.
+Run `alembic -n local upgrade head` after changing this, to create the schema in the new database.
+
+This database holds **only your data** — collection, decks, and a cache of card display data. It does not hold the card corpus, so it stays small and is cheap to back up. Back up this database; the cache rebuilds itself and the card corpus is never yours to lose.
+
+---
+
+## Choosing a model
+
+Deck generation goes through a provider interface, so all three options below are a config change, not a code change. Full detail — the interface, the capability floor, per-provider notes: `docs/model-providers.md`.
+
+### Frontier API — best deck quality
+
+```
+MODEL_PROVIDER=anthropic
+MODEL_NAME=claude-opus-5
+MODEL_API_KEY=sk-ant-...      # https://console.anthropic.com/settings/keys
+```
+
+You pay per deck generated. Nothing about your collection is stored by Tome; it goes to your chosen provider under your own account, subject to their terms.
+
+### Local model — free, private, no key
+
+```
+MODEL_PROVIDER=ollama
+MODEL_NAME=<a model you have pulled>
+MODEL_BASE_URL=http://localhost:11434
+```
+
+No API key, no cost, no network call for generation. What you trade is deck quality, and the failure mode is worth knowing: **an undersized model produces bland decks, not broken ones.** Every deck is validated locally by the same deterministic rules regardless of which model built it, so a weak model can't hand you an illegal deck — it hands you a legal, generic one, and takes more repair rounds to get there.
+
+Practical floor: a model that reliably emits JSON against a schema and has a **~32K context window**, because the candidate list is 100–200 cards of card knowledge plus rules and your preferences. Smaller models fail at following the many simultaneous constraints ("100 cards, singleton, this color identity, this curve"), not at the format.
+
+### Any OpenAI-compatible endpoint
+
+Covers OpenRouter, vLLM, LM Studio, and most corporate gateways — point `MODEL_BASE_URL` at the server:
+
+```
+MODEL_PROVIDER=openai
+MODEL_NAME=<model>
+MODEL_BASE_URL=https://your-gateway/v1
+MODEL_API_KEY=...
+```
+
+Tome checks reachability and auth at startup, so a stopped Ollama or a bad key is reported immediately — not twelve minutes into a deck build.
 
 ---
 
@@ -95,23 +136,66 @@ Run `alembic upgrade head` after changing this, to create the schema in the new 
 
 All settings live in `backend/.env` and are read through `backend/config.py`. Real environment variables take precedence over the file, which is what makes the Docker overrides work.
 
+### Client settings — what a normal install uses
+
 | Variable | Default | Purpose |
 |---|---|---|
-| `MODEL_API_KEY` | — | **Required.** Your Anthropic API key |
-| `DATABASE_URL` | `sqlite:///./tome.db` | Any SQLAlchemy URL |
-| `CHROMA_PERSIST_DIR` | `./chroma_data` | Where the vector store keeps its files |
+| `KNOWLEDGE_API_URL` | the hosted service | Where to fetch card data and candidates from. Point at your own if you run one |
+| `LOCAL_DATABASE_URL` | `sqlite:///./tome.db` | Your collection and decks. Any SQLAlchemy URL |
+| `MODEL_PROVIDER` | `anthropic` | `anthropic` · `openai` · `ollama` |
+| `MODEL_NAME` | provider-specific | Which model to build decks with |
+| `MODEL_API_KEY` | — | Required for hosted providers; **ignored for `ollama`** |
+| `MODEL_BASE_URL` | provider default | For `openai` against a non-OpenAI host, or a non-default Ollama port |
+| `MODEL_MAX_TOKENS` | `16000` | Output ceiling for deck construction |
+| `MODEL_TIMEOUT_SECONDS` | `600` | Generous on purpose — local models on CPU are slow |
 | `LOG_LEVEL` | `WARNING` | `DEBUG`, `INFO`, `WARNING`, `ERROR` |
-| `SCRYFALL_USER_AGENT` | `Tome/<version>` | Scryfall requires a User-Agent identifying your app. Change it if you run a modified or public deployment |
-| `SCRYFALL_API_BASE` | `https://api.scryfall.com` | Scryfall API root. Only worth changing against a mock/proxy in tests |
+
+**`MODEL_API_KEY` is only required for hosted providers.** It used to be mandatory, when Anthropic was the only option. A local-model install needs no key at all, and validation is per-provider: startup fails only if the provider you actually selected is missing a credential it needs.
+
+### Knowledge-plane settings — only if you run your own
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `KNOWLEDGE_DATABASE_URL` | — | The cloud Postgres holding the card corpus. Needs `pgvector` |
+| `EMBEDDING_MODEL` | `sentence-transformers/all-MiniLM-L6-v2` | Must match what the corpus was embedded with |
+| `SCRYFALL_USER_AGENT` | `Tome/<version>` | Scryfall requires a User-Agent identifying your app. Change it for a modified or public deployment |
+| `SCRYFALL_API_BASE` | `https://api.scryfall.com` | Only worth changing against a mock/proxy in tests |
 | `SCRYFALL_BULK_TYPE` | `oracle_cards` | Which bulk file to import |
 | `SCRYFALL_CACHE_DIR` | `./data/scryfall` | Where downloaded snapshots are cached |
 | `IMPORT_BATCH_SIZE` | `1000` | Rows per database batch during import |
 
 ---
 
-## Choosing a card pool
+## Running your own knowledge plane
 
-By default the importer pulls in **every real card** — about 33,000 objects, roughly 40–60 MB in Postgres — with each card's complete `legalities` map stored alongside it, regardless of which format(s) it's legal in. That's deliberate: Commander-legal cards are 96.5% of the entire pool, so narrowing the *import* saves almost nothing. Format only starts to matter downstream, at the AI stages (metadata generation, embedding) that cost real time and API calls per card — narrow there once those stages exist, not here.
+You don't need this to use Tome. Do it if you want zero dependency on our service, a modified card pool, or your own card analysis.
+
+It means running all four pieces yourself: a Postgres with `pgvector`, the Knowledge Pipeline to populate it, the Knowledge API in front of it, and `KNOWLEDGE_API_URL` pointed at your instance.
+
+**Understand the cost first.** The Scryfall import is fast and cheap — about 10 seconds against a warm cache. The stages after it are neither: metadata generation is **one model call per card across ~33,000 cards**, plus a full embedding pass. That bill, in time and API spend, is the entire reason the hosted service exists.
+
+```bash
+# 1. A Postgres with pgvector enabled (Neon, Supabase, RDS, or your own).
+#    Set KNOWLEDGE_DATABASE_URL to it, with a read-write role.
+alembic -n knowledge upgrade head
+
+# 2. Import the card corpus.
+python -m knowledge_pipeline.scryfall_importer --format commander
+
+# 3. The expensive stages — analysis, documents, embeddings.
+python -m knowledge_pipeline.metadata_generator
+python -m knowledge_pipeline.document_generator
+python -m knowledge_pipeline.embeddings
+
+# 4. Serve it, and point your client at it.
+#    KNOWLEDGE_API_URL=http://localhost:8001
+```
+
+Give the Knowledge API a **read-only** database role. It never writes, and a public read service shouldn't be able to damage the corpus.
+
+### Choosing a card pool
+
+By default the importer pulls in **every real card** — about 33,000 objects, roughly 40–60 MB in Postgres — with each card's complete `legalities` map stored alongside it, regardless of which format(s) it's legal in. That's deliberate: Commander-legal cards are 96.5% of the entire pool, so narrowing the *import* saves almost nothing. Format only starts to matter at the AI stages that cost real time and API calls per card.
 
 ```bash
 python -m knowledge_pipeline.scryfall_importer                    # interactive picker (needs a real terminal)
@@ -120,11 +204,9 @@ python -m knowledge_pipeline.scryfall_importer --format commander # or any other
 
 Registered pools come from `backend/knowledge_pipeline/scryfall_importer/formats.py`'s `PROFILES` registry: `all`, `commander`, `vintage`, `legacy`, `oathbreaker`, `modern`, `duel`, `pioneer`, `pauper`, `paupercommander`, `brawl`, `standard`. Naming one that isn't registered exits with code 2 and lists the valid choices. Tokens, emblems, and other non-card objects are excluded from every profile regardless of format.
 
-Since Tome's deck builder UI, rules validator, and AI prompts all assume a 100-card Commander singleton deck, most self-hosters will still want `--format commander` (~31,800 cards) for a smaller local database — but every card keeps its full legality map either way, so switching pools later, or a future format being added to the registry, is never a re-import from scratch.
+Since Tome's deck builder UI, rules validator, and prompts all assume a 100-card Commander singleton deck, `--format commander` (~31,800 cards) is the sensible pool — but every card keeps its full legality map either way, so switching pools later, or a future format being added to the registry, is never a re-import from scratch.
 
----
-
-## Keeping card data current
+### Keeping card data current
 
 Scryfall regenerates its bulk files every 12–24 hours, but gameplay data changes slowly — a weekly refresh is plenty, or just run it after a set release.
 
@@ -132,29 +214,18 @@ Scryfall regenerates its bulk files every 12–24 hours, but gameplay data chang
 python -m knowledge_pipeline.scryfall_importer --if-newer
 ```
 
-`--if-newer` exits immediately if you've already imported the current snapshot, so this is safe to put on a schedule.
+`--if-newer` exits immediately if the current snapshot has already been imported, so this is safe to put on a schedule. Re-importing updates cards in place, never deleting and re-creating them, and the primary key is Scryfall's reprint-stable oracle ID rather than a printing ID that changes when a card is reprinted.
 
-**Re-importing never touches your collection or your decks.** Cards are updated in place, never deleted and re-created, and the primary key is Scryfall's reprint-stable oracle ID rather than a printing ID that changes when a card is reprinted.
+Re-run the AI stages afterward for cards whose oracle text actually changed — `CardMetadata.updated_at` and `CardDocument.updated_at` exist to find metadata older than the card it describes.
 
-### Reclaiming space
+### `--prune` and `--reset` are destructive here
 
-To clear out cards that are no longer in the pool — banned since your last import, or left over from an older version of Tome that imported every card:
+Both used to be protected by checking for user data in the same database. **Those guards can't work anymore**: collections and decks live on users' machines now, so the importer cannot see what a deletion would orphan.
 
-```bash
-python -m knowledge_pipeline.scryfall_importer --prune
-```
+- **Don't `--prune` a shared corpus.** A card banned since the last refresh is still a card somebody owns and wants to see in their collection. The pool is tens of megabytes — there is nothing to reclaim that's worth breaking an install for.
+- **`--reset` will no longer refuse.** On a shared database it is a full corpus wipe affecting every client pointed at it. Gate it with credentials, not with a prompt.
 
-`--prune` removes cards outside the imported pool **except** any card in your collection, in a deck, or with generated metadata. A banned card you physically own stays in your collection.
-
-### Starting over
-
-```bash
-python -m knowledge_pipeline.scryfall_importer --reset
-```
-
-`--reset` empties the card table before importing. It **refuses to run** if you have any collection or deck data, because deleting cards would orphan it. To go ahead anyway you need `--force` *and* to type `delete` at the prompt — there is no way to do this unattended by accident.
-
-Card data is always re-downloadable. Your collection is not — so back up your database before any `--force`.
+Card data is always re-downloadable, but the AI stages are not cheap to redo — back up the knowledge database before either.
 
 ---
 
@@ -163,21 +234,37 @@ Card data is always re-downloadable. Your collection is not — so back up your 
 ```bash
 git pull
 pip install -r backend/requirements.txt   # if requirements changed
-cd backend && alembic upgrade head
+cd backend && alembic -n local upgrade head
 ```
 
-`alembic upgrade head` applies any schema changes to your existing database without losing data. Docker does this for you on container start.
+That migrates **your** database only. The knowledge database is migrated by whoever operates it — and a client upgrade never requires a knowledge-plane migration to land first, because the Knowledge API is versioned (`docs/knowledge-api.md#versioning`). Docker runs the local migration for you on container start.
 
 ---
 
 ## Troubleshooting
 
-**`MODEL_API_KEY is not set`** — copy `backend/.env.example` to `backend/.env` and add your key. The importer doesn't need it; deck generation does.
+**`MODEL_API_KEY is not set`** — you've selected a hosted provider without a key. Either add one to `backend/.env`, or switch `MODEL_PROVIDER=ollama` to run locally without a key.
 
-**Importer writes to SQLite when you configured Postgres** — check `DATABASE_URL` is in `backend/.env` (not the repo-root `.env`, which only holds Postgres credentials for compose).
+**"Can't reach the model"** — for `ollama`, check the server is actually running and that `MODEL_BASE_URL` is right. In Docker, use `http://host.docker.internal:11434`, not `localhost`.
 
-**`No --format given and no terminal to ask on`** — the importer refuses to hang waiting for input it can't get (Docker `exec`, cron, CI all have no TTY). Pass `--format` explicitly; see [Choosing a card pool](#choosing-a-card-pool).
+**"Can't reach the Knowledge API"** — deck generation needs it; browsing your collection and hand-editing decks don't, and keep working from your local cache. Check `KNOWLEDGE_API_URL` and your network.
 
-**Import seems slow** — the first run downloads ~24 MB. Later runs reuse the cached file in `SCRYFALL_CACHE_DIR`; a full import takes about 10 seconds after that. `--force-download` re-fetches if you suspect a corrupt cache.
+**"This client is too old"** — the Knowledge API reported a `schema_version` your build doesn't understand. `git pull` and upgrade rather than trying to force it; a mismatched client can misread responses.
+
+**Cards show as placeholders** — your local cache doesn't have them and the API couldn't be reached to fill it (common right after restoring a backup onto a fresh install). They resolve on their own once the API is reachable.
+
+**Decks come out bland and generic** — almost always an undersized local model, not a bug. The deck is legal because validation is local and deterministic; it's the strategy the model isn't following. Try a larger model or a frontier API. See [Choosing a model](#choosing-a-model).
+
+**Generation is very slow** — a local model on CPU can take many minutes; `MODEL_TIMEOUT_SECONDS` defaults to 600 for that reason. If you're hitting the timeout, use a smaller model, enable GPU, or switch providers.
+
+### Running your own knowledge plane
+
+**Importer writes to the wrong database** — check `KNOWLEDGE_DATABASE_URL` (the corpus) versus `LOCAL_DATABASE_URL` (your collection). These are different databases now; the pipeline writes the former.
+
+**`No --format given and no terminal to ask on`** — the importer refuses to hang waiting for input it can't get (Docker `exec`, cron, CI all have no TTY). Pass `--format` explicitly.
+
+**Retrieval returns nonsense** — almost always a mixed-embedding corpus: `EMBEDDING_MODEL` doesn't match what the documents were embedded with. Changing the embedding model requires re-embedding everything, not a partial pass.
+
+**Retrieval is slow** — check the HNSW index exists and that queries order by `cosine_distance`. The index operator class must match the distance function, or Postgres silently falls back to a sequential scan.
 
 **HTTP 429 from Scryfall** — the importer backs off automatically. Scryfall imposes a 30-second restriction, so it waits at least that long. Bulk file downloads themselves aren't rate limited; only the one catalog lookup per run is.

@@ -2,21 +2,32 @@
 
 Detailed technical reference for the Knowledge Pipeline introduced in `docs/architecture.md#knowledge-pipeline`. That document is the source of truth for the pipeline's shape and stage order; this file exists to hold the implementation-level detail for each stage as it's built, so `architecture.md` doesn't accumulate detail it wasn't meant to hold.
 
+**This pipeline is operated by maintainers, not by users.** It runs offline against the shared cloud Postgres, and its output is the same for everyone — every client reads the result through the Knowledge API (`knowledge-api.md`) rather than building it locally. That is the point: metadata generation is one model call per card across ~33,000 cards, and asking each user to pay that bill before their first deck was the single largest barrier to using Tome.
+
+Two consequences for anyone working in here:
+
+- **`DATABASE_URL` for a pipeline run points at the cloud Postgres**, with a read-write role. The Knowledge API uses a separate read-only role against the same database. Getting this backwards writes user-visible card data from a laptop.
+- **A run is a publish.** There is no per-user copy to roll forward independently, so a bad metadata prompt or a half-finished embed is visible to every user at once. Stage-by-stage, resumable, and idempotent are requirements, not niceties — which is already how the importer is built.
+
 Pipeline (offline, run from `backend/`):
 
 ```
-Scryfall → Card Import → Claude Metadata Generation → Normalized Database
-  → Knowledge Document Generation → Hugging Face Embeddings → ChromaDB
+Scryfall → Card Import → Model Metadata Generation → Knowledge Document Generation
+  → Hugging Face Embeddings → Cloud Postgres (pgvector)
 ```
 
-| Stage | Module | Status |
-|---|---|---|
-| Card Import | `knowledge_pipeline/scryfall_importer/` | **implemented** |
-| Claude Metadata Generation | `knowledge_pipeline/metadata_generator.py` | stub |
-| Knowledge Document Generation | `knowledge_pipeline/document_generator.py` | stub |
-| Embeddings | `knowledge_pipeline/embeddings.py` | stub |
+| Stage | Module | Writes | Status |
+|---|---|---|---|
+| Card Import | `knowledge_pipeline/scryfall_importer/` | `cards`, `import_runs` | **implemented** |
+| Metadata Generation | `knowledge_pipeline/metadata_generator.py` | `card_metadata` | stub |
+| Knowledge Document Generation | `knowledge_pipeline/document_generator.py` | `card_documents.document` | stub |
+| Embeddings | `knowledge_pipeline/embeddings.py` | `card_documents.embedding` | stub |
 
 The output of Card Import is the `Card` entity described in `docs/data-model.md#card` — imported directly from Scryfall, never AI-generated. The remaining stages are undocumented until implemented.
+
+**The vector store is `pgvector` in the same Postgres, not ChromaDB.** Documents, their filter fields, and their embeddings live alongside the cards they describe, so a stage writes relational rows and vectors in one transaction and retrieval is a single query with both similarity and hard filters. Rationale and the column/index declaration: `architecture.md#why-pgvector-and-not-chromadb`; the schema: `data-model.md#carddocument`.
+
+The embedding model is a property of the corpus, not of a run — a corpus embedded by mixed model versions returns nonsense. `card_documents.embedding_model` records which model produced each vector, and changing the model means re-embedding everything, not a partial pass.
 
 ---
 
@@ -56,7 +67,9 @@ python -m knowledge_pipeline.scryfall_importer --format all --reset       # star
 
 ### The import is deliberately not format-scoped
 
-Tome is a Commander deck builder, but the importer does not filter to Commander (or any format) by default. Commander-legal cards are 96.5% of the entire card pool (31,830 of 32,988), so scoping the *import* to Commander would save almost nothing while making every other format permanently unavailable without a full re-import. Instead, the full corpus is imported with its complete `legalities` map intact, and format becomes a filter applied later, at the stages where pool size actually costs something — `metadata_generator.py` (one Claude call per card) and `embeddings.py`. `--format` on the import exists mainly for constrained hosts that want a smaller table.
+Tome is a Commander deck builder, but the importer does not filter to Commander (or any format) by default. Commander-legal cards are 96.5% of the entire card pool (31,830 of 32,988), so scoping the *import* to Commander would save almost nothing while making every other format permanently unavailable without a full re-import. Instead, the full corpus is imported with its complete `legalities` map intact, and format becomes a filter applied later, at the stages where pool size actually costs something — `metadata_generator.py` (one model call per card) and `embeddings.py`. `--format` on the import exists mainly for a constrained host, or for a developer who wants a smaller table to work against locally.
+
+Centralizing the knowledge base strengthens this argument rather than weakening it. The import now runs once against one shared database, so the disk it costs is paid once by us — while keeping every format answerable means a future Brawl or Oathbreaker mode is a downstream filter, not a re-import that every user would have to wait on.
 
 ### Formats are data, not code
 
@@ -93,8 +106,16 @@ Commander is 96.5% of the entire card pool, so scoping the *import* to it saves 
 ### Re-running is safe
 
 - **Upsert, never replace.** Writes are `INSERT ... ON CONFLICT (oracle_id) DO UPDATE` in batches of `IMPORT_BATCH_SIZE`, so a weekly refresh updates rows in place and cannot disturb a collection or a deck. Duplicate `oracle_id`s within a batch (reversible cards, some promos) are collapsed first, because Postgres rejects an `ON CONFLICT` statement that touches the same key twice.
-- **`--prune` is reference-safe by construction.** It deletes cards outside the current import *and* not referenced by `collection`, `deck_cards`, `decks.commander_id`, or `card_metadata`. So it clears out cards banned since the last refresh (and anything left over from a wider earlier import) while keeping a banned card the user owns.
-- **`--reset` refuses** while `collection`/`decks`/`deck_cards` hold rows, unless `--force` *and* a typed `delete` confirmation on a real terminal. Card data is re-downloadable; a collection is not.
+- **`--prune` and `--reset` lost their safety net when collections went local — treat both as destructive now.** Both guards were built on seeing user data in the same database: `--prune` skipped any card referenced by `collection`/`deck_cards`/`decks.commander_id`, and `--reset` refused outright while those tables held rows. In the split model those tables are **not in this database** (`data-model.md#two-databases-one-join-key`), so neither check can see the user data it was protecting. Deleting a card from the shared corpus now silently orphans a logical reference on some user's machine — the row survives, but the card behind it stops resolving.
+
+  What that changes in practice:
+
+  - **`--prune` is for reclaiming space on a development database, not on the shared one.** On the shared corpus, a banned card is still a card someone owns and wants to see in their collection. Keep it. The pool is ~33,000 rows and tens of megabytes; there is nothing here worth reclaiming at the cost of breaking installs.
+  - **What still protects rows in this database** is the `card_metadata` reference check — a card with generated metadata is never pruned. That is now the only automatic guard, and it only covers cards the AI stages have already processed.
+  - **A client must tolerate an unresolvable `oracle_id` regardless**, because this is the same case as a restored backup or a card from a newer snapshot. Batch-resolve through the Knowledge API, render a placeholder, never crash.
+  - **`--reset` no longer has a meaningful refusal condition here.** It will run. On the shared database that is a full corpus wipe visible to every user, so gate it operationally (credentials, not a prompt) rather than trusting the flag.
+
+  On a self-hosted single-machine deployment where the knowledge database and the local database happen to be the same Postgres, the original guards still apply and still work.
 - **`--if-newer`** compares Scryfall's `updated_at` against the newest completed `ImportRun` and exits early, making a scheduled refresh cheap. A `--dry-run` deliberately writes no `ImportRun`, so it can't cause the next real import to be skipped.
 
 Downloads are cached under `SCRYFALL_CACHE_DIR` (default `backend/data/scryfall/`, gitignored) with Scryfall's snapshot timestamp in the filename, written via a `.partial` file so an interrupted download is never mistaken for a complete one.
@@ -141,6 +162,10 @@ Mapping from the Scryfall card object to `docs/data-model.md#card`:
 | colors | `colors` | root first, else the union across faces |
 | color_identity | `color_identity` | always present at card root, even for multi-faced cards — union of both faces. This is the field Commander legality checks depend on |
 | type_line | `type_line` | for multi-faced cards this is both faces joined with `" // "` |
+| power | `power` | nullable — creatures/vehicles only. Root first, else the relevant face's value. Kept as Scryfall's raw string (`"*"`, `"1+*"` are real values) rather than parsed to a number |
+| toughness | `toughness` | same nullability and root-then-face fallback as `power` |
+| loyalty | `loyalty` | nullable — planeswalkers only. Same root-then-face fallback as `power`/`toughness` |
+| defense | `defense` | nullable — battle cards only. Same fallback rule |
 | keywords | `keywords` | array of strings, e.g. `["Lifelink"]` |
 | image_url | `image_uris.normal` | nullable. Root first, else the **front** face's image |
 | layout | `layout` | drives the face-merge rules and tells downstream stages a card has a back side |
@@ -176,6 +201,7 @@ Implications for the importer:
 
 - `color_identity` and `cmc` are always safe to read from the card root regardless of layout.
 - `mana_cost`, `oracle_text`, `colors`, `type_line`, and `image_uris` may be **missing or incomplete at the card root** on multi-faced cards. The importer reads the root first and falls back to `card_faces` — testing the value rather than the layout, since some `normal` cards also have empty fields.
+- `power`/`toughness`/`loyalty`/`defense` follow the same root-then-face rule, and matter more here than for text fields: a transform creature's two faces routinely have *different* stats (see `Norman Osborn // Green Goblin`, 1/1 front and 3/3 back), so falling back to the wrong face silently produces a wrong number rather than an obviously-missing one.
 
 **Merge rule (decision): both faces are kept, labelled by face name.** `Card` is single-valued, so face oracle texts are concatenated as `"{face name}\n{text}"` joined by `"\n//\n"`. Storing the front face only would be actively wrong here — the back of a modal DFC land is usually the reason to run it, and the metadata generator and knowledge document would be reasoning about half a card. As imported:
 
