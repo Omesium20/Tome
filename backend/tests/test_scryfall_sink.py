@@ -119,9 +119,14 @@ def test_prune_keeps_cards_used_in_decks(db_session):
         db_session, [make_row("a"), make_row("cmdr"), make_row("in-deck")], batch_size=10
     )
     db_session.add(
-        Deck(id="d1", user_id="u1", commander_id="cmdr", created_at=datetime(2026, 1, 1))
+        Deck(
+            id="d1", user_id="u1", name="Test Deck", commander_id="cmdr",
+            created_at=datetime(2026, 1, 1), updated_at=datetime(2026, 1, 1),
+        )
     )
-    db_session.add(DeckCard(deck_id="d1", card_id="in-deck", owned=True, proxy=False))
+    db_session.add(
+        DeckCard(deck_id="d1", card_id="in-deck", quantity=1, owned=True, proxy=False)
+    )
     db_session.commit()
 
     removed = sink.prune(db_session, keep=set())

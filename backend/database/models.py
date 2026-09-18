@@ -71,6 +71,10 @@ class CardMetadata(Base):
     strengths: Mapped[list[str]] = mapped_column(JSON)
     weaknesses: Mapped[list[str]] = mapped_column(JSON)
     synergy_tags: Mapped[list[str]] = mapped_column(JSON)
+    # When the metadata generator last wrote this row. Lets a refresh detect
+    # metadata that predates the Card.updated_at it describes (e.g. after an
+    # oracle text errata) and needs regenerating.
+    updated_at: Mapped[datetime]
 
 
 class Collection(Base):
@@ -86,18 +90,23 @@ class Collection(Base):
 
 
 class Deck(Base):
-    """A generated deck."""
+    """A user's saved deck -- AI-generated or built by hand."""
 
     __tablename__ = "decks"
 
     id: Mapped[str] = mapped_column(primary_key=True)
     user_id: Mapped[str]
-    commander_id: Mapped[str] = mapped_column(ForeignKey("cards.oracle_id"))
+    # User-chosen on first save.
+    name: Mapped[str]
+    # Nullable: a work-in-progress deck may not have picked a commander yet.
+    commander_id: Mapped[str | None] = mapped_column(ForeignKey("cards.oracle_id"))
     created_at: Mapped[datetime]
+    # Saving an existing deck updates in place rather than creating a duplicate.
+    updated_at: Mapped[datetime]
 
 
 class DeckCard(Base):
-    """Cards inside a generated deck."""
+    """Cards inside a saved deck."""
 
     __tablename__ = "deck_cards"
 
@@ -105,6 +114,8 @@ class DeckCard(Base):
     card_id: Mapped[str] = mapped_column(
         ForeignKey("cards.oracle_id"), primary_key=True
     )
+    # 1 for everything except basic lands (singleton format).
+    quantity: Mapped[int]
     owned: Mapped[bool]
     proxy: Mapped[bool]
 

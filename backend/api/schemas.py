@@ -24,5 +24,7 @@ class CardSummary(BaseModel):
 class DeckSummary(BaseModel):
     id: str
     user_id: str
-    commander_id: str
+    name: str
+    commander_id: str | None
     created_at: datetime
+    updated_at: datetime
