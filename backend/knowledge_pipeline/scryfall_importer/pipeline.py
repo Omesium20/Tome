@@ -1,10 +1,15 @@
-﻿"""Wiring the import stages together.
+"""Wiring the import stages together.
 
-    catalog -> download -> stream -> filter -> map -> upsert -> [prune]
+    catalog -> download -> stream -> filter -> map -> upsert
 
 Each stage is a generator, so the corpus is never held in memory: a card is
-decoded, tested against the format profile, mapped, and handed to the batched
-writer, one at a time.
+decoded, tested, mapped, and handed to the batched writer, one at a time.
+
+**An import is upsert-only — it can add and update, never delete.** Worth
+stating as a property rather than leaving as an accident: this writes to a
+corpus every client reads, and deleting a row here silently breaks a logical
+reference on a machine we can't see. `--reset` is the one destructive path,
+and it is not part of an import (see `__main__.py`).
 """
 
 import logging
@@ -16,12 +21,12 @@ import httpx
 from sqlalchemy import desc, select
 from sqlalchemy.orm import Session
 
-from config import Settings, get_settings
-from database.models import ImportRun
-from database.session import SessionLocal
+from config import KnowledgeSettings, get_knowledge_settings
+from database.knowledge.models import ImportRun
+from database.knowledge.session import new_session
 
 from . import bulk, sink
-from .formats import DEFAULT_PROFILE, FormatProfile, resolve
+from .card_filter import is_card
 from .mapping import CardRow, to_card_row, utcnow
 
 logger = logging.getLogger(__name__)
@@ -31,14 +36,12 @@ logger = logging.getLogger(__name__)
 class ImportReport:
     """What a run actually did."""
 
-    profile: str
     bulk_type: str
     source_updated_at: datetime | None = None
     cards_seen: int = 0
     cards_accepted: int = 0
     cards_written: int = 0
     cards_skipped: int = 0
-    cards_pruned: int = 0
     dry_run: bool = False
     up_to_date: bool = False
     started_at: datetime = field(default_factory=utcnow)
@@ -57,14 +60,12 @@ class ImportReport:
             )
         prefix = "Dry run" if self.dry_run else "Import"
         parts = [
-            f"{prefix} complete ({self.profile}): {self.cards_seen:,} read",
-            f"{self.cards_accepted:,} matched",
+            f"{prefix} complete: {self.cards_seen:,} read",
+            f"{self.cards_accepted:,} cards",
             f"{self.cards_written:,} written",
         ]
         if self.cards_skipped:
             parts.append(f"{self.cards_skipped:,} unmappable")
-        if self.cards_pruned:
-            parts.append(f"{self.cards_pruned:,} pruned")
         parts.append(f"{self.elapsed_seconds:.1f}s")
         return ", ".join(parts)
 
@@ -80,7 +81,6 @@ def _last_run(session: Session, bulk_type: str) -> ImportRun | None:
 
 def _card_rows(
     cards: Iterator[dict],
-    profile: FormatProfile,
     report: ImportReport,
     *,
     limit: int | None,
@@ -90,7 +90,7 @@ def _card_rows(
     for raw in cards:
         report.cards_seen += 1
 
-        if not profile.accepts(raw):
+        if not is_card(raw):
             continue
         report.cards_accepted += 1
 
@@ -109,42 +109,36 @@ def _card_rows(
 
 def import_cards(
     *,
-    format_name: str = DEFAULT_PROFILE,
     dry_run: bool = False,
     limit: int | None = None,
-    prune: bool = False,
     if_newer: bool = False,
     force_download: bool = False,
-    settings: Settings | None = None,
+    settings: KnowledgeSettings | None = None,
     client: httpx.Client | None = None,
     session: Session | None = None,
 ) -> ImportReport:
-    """Import Scryfall bulk card data into the ``cards`` table.
+    """Import Scryfall's bulk card data into the ``cards`` table.
+
+    Every card object in the file is imported, with its full legality map.
+    There is no format parameter — see `card_filter.py` for why. Filter by
+    format downstream instead: at the AI stages, or on the client.
 
     Args:
-        format_name: Which pool to accept. Only enabled profiles are importable
-            — today that means Commander alone; naming a scaffolded format
-            raises ``FormatNotEnabledError``. See docs/knowledge-pipeline.md.
         dry_run: Read, filter and map everything, but write nothing.
-        limit: Stop after this many accepted cards. For development.
-        prune: After writing, remove cards outside this import that nothing
-            references.
+        limit: Stop after this many cards. For development.
         if_newer: Exit early if Scryfall's snapshot has already been imported.
         force_download: Re-download even when a matching cache file exists.
 
     The ``settings``/``client``/``session`` parameters exist so tests can inject
     fakes; production callers pass none of them.
     """
-    settings = settings or get_settings()
-    profile = resolve(format_name)
-    report = ImportReport(
-        profile=profile.name, bulk_type=settings.scryfall_bulk_type, dry_run=dry_run
-    )
+    settings = settings or get_knowledge_settings()
+    report = ImportReport(bulk_type=settings.scryfall_bulk_type, dry_run=dry_run)
 
     owns_client = client is None
     owns_session = session is None
     client = client or bulk.open_client(settings)
-    session = session or SessionLocal()
+    session = session or new_session()
 
     try:
         entry = bulk.fetch_catalog_entry(settings, client)
@@ -166,12 +160,10 @@ def import_cards(
         if not dry_run:
             run = ImportRun(
                 bulk_type=entry.type,
-                format_profile=profile.name,
                 source_updated_at=entry.updated_at,
                 cards_seen=0,
                 cards_written=0,
                 cards_skipped=0,
-                cards_pruned=0,
                 started_at=report.started_at,
             )
             session.add(run)
@@ -179,7 +171,7 @@ def import_cards(
 
         imported_at = utcnow()
         rows = _card_rows(
-            bulk.stream_cards(path), profile, report, limit=limit, imported_at=imported_at
+            bulk.stream_cards(path), report, limit=limit, imported_at=imported_at
         )
 
         if dry_run:
@@ -188,13 +180,9 @@ def import_cards(
             report.cards_written = 0
             logger.info("Dry run: would have written %d cards", len(seen_ids))
         else:
-            written, seen_ids = sink.upsert_batches(
+            report.cards_written = sink.upsert_batches(
                 session, rows, batch_size=settings.import_batch_size
             )
-            report.cards_written = written
-
-            if prune:
-                report.cards_pruned = sink.prune(session, seen_ids)
 
         report.finished_at = utcnow()
 
@@ -202,7 +190,6 @@ def import_cards(
             run.cards_seen = report.cards_seen
             run.cards_written = report.cards_written
             run.cards_skipped = report.cards_skipped
-            run.cards_pruned = report.cards_pruned
             run.finished_at = report.finished_at
             session.commit()
 

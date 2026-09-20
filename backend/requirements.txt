@@ -7,10 +7,11 @@ python-multipart>=0.0.9
 httpx>=0.27
 
 # AI / retrieval
+# LangChain and ChromaDB were dropped from the stack, not merely unused:
+# retrieval is behind an HTTP contract (the Knowledge API) and generation
+# behind our own provider interface, and the vector store is pgvector in the
+# knowledge Postgres. See CLAUDE.md's stack table.
 anthropic>=0.28
-langchain>=0.2
-langchain-anthropic>=0.1
-chromadb>=0.5
 sentence-transformers>=3.0
 
 # persistence

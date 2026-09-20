@@ -1,12 +1,11 @@
 import logging
 
-# Raw Anthropic SDK for now — CLAUDE.md's stack table designates LangChain for
-# retrieval/prompt construction/output parsing once the Deck Generation
-# Pipeline (still stubs) is built. This client is just the bare API handle
-# those LangChain components will wrap.
+# Raw Anthropic SDK. This is a bare API handle, and a temporary one: the
+# target shape is the `ModelProvider` interface in `docs/model-providers.md`,
+# with Anthropic as one implementation among local and OpenAI-compatible ones.
 from anthropic import Anthropic
 
-from config import get_settings
+from config import get_local_settings
 
 logger = logging.getLogger(__name__)
 
@@ -16,11 +15,11 @@ _client: Anthropic | None = None
 def get_client() -> Anthropic:
     global _client
     if _client is None:
-        api_key = get_settings().model_api_key
+        api_key = get_local_settings().model_api_key
         if not api_key:
             raise RuntimeError(
-                "MODEL_API_KEY is not set. Copy backend/.env.example to backend/.env "
-                "and add your Anthropic API key."
+                "MODEL_API_KEY is not set. Add it to backend/.env. It is a "
+                "client-plane setting: model calls happen on the user's machine."
             )
         logger.info("Initializing Anthropic client")
         _client = Anthropic(api_key=api_key)

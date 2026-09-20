@@ -1,3 +1,11 @@
+"""Entities in the shared cloud corpus (`docs/data-model.md#knowledge-database-cloud`).
+
+Written once, centrally, by the Knowledge Pipeline; identical for every user.
+Foreign keys between these tables are real — they all live in the same
+Postgres. References *into* this schema from a user's machine are not, and
+cannot be; see `database/local/models.py`.
+"""
+
 from datetime import datetime
 
 from sqlalchemy import ForeignKey, JSON
@@ -5,7 +13,11 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
 class Base(DeclarativeBase):
-    pass
+    """Declarative base for the knowledge database only.
+
+    Separate from the local plane's base so the two schemas migrate
+    independently and neither Alembic environment can see the other's tables.
+    """
 
 
 class Card(Base):
@@ -17,6 +29,10 @@ class Card(Base):
     reprinted — so keying on the printing id would rotate the primary key on
     an ordinary refresh and orphan every collection and deck row pointing at
     it. ``oracle_id`` is stable across reprints.
+
+    That stability is now load-bearing rather than merely convenient: user
+    rows reference these ids from a different database on a machine we cannot
+    see, where no foreign key can cascade a change.
     """
 
     __tablename__ = "cards"
@@ -60,6 +76,7 @@ class CardMetadata(Base):
 
     __tablename__ = "card_metadata"
 
+    # A real foreign key: both tables are in this database.
     card_id: Mapped[str] = mapped_column(
         ForeignKey("cards.oracle_id"), primary_key=True
     )
@@ -77,67 +94,27 @@ class CardMetadata(Base):
     updated_at: Mapped[datetime]
 
 
-class Collection(Base):
-    """Tracks the cards a user owns."""
-
-    __tablename__ = "collection"
-
-    user_id: Mapped[str] = mapped_column(primary_key=True)
-    card_id: Mapped[str] = mapped_column(
-        ForeignKey("cards.oracle_id"), primary_key=True
-    )
-    quantity: Mapped[int]
-
-
-class Deck(Base):
-    """A user's saved deck -- AI-generated or built by hand."""
-
-    __tablename__ = "decks"
-
-    id: Mapped[str] = mapped_column(primary_key=True)
-    user_id: Mapped[str]
-    # User-chosen on first save.
-    name: Mapped[str]
-    # Nullable: a work-in-progress deck may not have picked a commander yet.
-    commander_id: Mapped[str | None] = mapped_column(ForeignKey("cards.oracle_id"))
-    created_at: Mapped[datetime]
-    # Saving an existing deck updates in place rather than creating a duplicate.
-    updated_at: Mapped[datetime]
-
-
-class DeckCard(Base):
-    """Cards inside a saved deck."""
-
-    __tablename__ = "deck_cards"
-
-    deck_id: Mapped[str] = mapped_column(ForeignKey("decks.id"), primary_key=True)
-    card_id: Mapped[str] = mapped_column(
-        ForeignKey("cards.oracle_id"), primary_key=True
-    )
-    # 1 for everything except basic lands (singleton format).
-    quantity: Mapped[int]
-    owned: Mapped[bool]
-    proxy: Mapped[bool]
-
-
 class ImportRun(Base):
     """One execution of the Scryfall importer.
 
     Exists so a scheduled refresh can compare Scryfall's ``updated_at`` against
     the last successful run and exit early when the bulk file hasn't changed
     (``--if-newer``), and so an operator can see what a past import actually did.
+
+    Two columns were dropped when format scoping was removed: ``format_profile``
+    could only ever hold one value once every import took the whole pool, and
+    ``cards_pruned`` outlived ``--prune`` itself. An import only ever adds and
+    updates now, so there is no deletion count to record.
     """
 
     __tablename__ = "import_runs"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     bulk_type: Mapped[str]
-    format_profile: Mapped[str]
     # Scryfall's own timestamp for the bulk file consumed by this run.
     source_updated_at: Mapped[datetime]
     cards_seen: Mapped[int]
     cards_written: Mapped[int]
     cards_skipped: Mapped[int]
-    cards_pruned: Mapped[int]
     started_at: Mapped[datetime]
     finished_at: Mapped[datetime | None]

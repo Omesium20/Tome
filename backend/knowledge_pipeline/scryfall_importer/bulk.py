@@ -26,7 +26,7 @@ from pathlib import Path
 
 import httpx
 
-from config import Settings
+from config import KnowledgeSettings
 
 logger = logging.getLogger(__name__)
 
@@ -56,7 +56,7 @@ class BulkDataEntry:
         return f"{self.type}-{stamp}.jsonl.gz"
 
 
-def _headers(settings: Settings) -> dict[str, str]:
+def _headers(settings: KnowledgeSettings) -> dict[str, str]:
     # Scryfall requires both of these and explicitly asks that the User-Agent
     # identify the application rather than being a default library string.
     # https://scryfall.com/docs/api ("Required Headers")
@@ -92,7 +92,7 @@ def _get_with_backoff(client: httpx.Client, url: str, **kwargs) -> httpx.Respons
     raise AssertionError("unreachable")  # pragma: no cover
 
 
-def fetch_catalog_entry(settings: Settings, client: httpx.Client) -> BulkDataEntry:
+def fetch_catalog_entry(settings: KnowledgeSettings, client: httpx.Client) -> BulkDataEntry:
     """Find the catalog entry for the configured bulk type.
 
     Defaults to ``oracle_cards``: one object per Oracle ID, which is exactly the
@@ -141,7 +141,7 @@ def _parse_timestamp(raw: str) -> datetime:
 
 def download(
     entry: BulkDataEntry,
-    settings: Settings,
+    settings: KnowledgeSettings,
     client: httpx.Client,
     *,
     force: bool = False,
@@ -195,6 +195,6 @@ def stream_cards(path: Path) -> Iterator[dict]:
             yield json.loads(line)
 
 
-def open_client(settings: Settings) -> httpx.Client:
+def open_client(settings: KnowledgeSettings) -> httpx.Client:
     """An httpx client carrying the headers Scryfall requires."""
     return httpx.Client(headers=_headers(settings), follow_redirects=True, timeout=60.0)

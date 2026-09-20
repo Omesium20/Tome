@@ -6,13 +6,14 @@ import json
 import httpx
 import pytest
 
-from config import Settings
+from config import KnowledgeSettings
 from knowledge_pipeline.scryfall_importer import bulk
 
 
 @pytest.fixture
-def settings(tmp_path) -> Settings:
-    return Settings(
+def settings(tmp_path) -> KnowledgeSettings:
+    return KnowledgeSettings(
+        knowledge_database_url="sqlite://",
         scryfall_api_base="https://api.scryfall.test",
         scryfall_cache_dir=tmp_path / "cache",
         scryfall_user_agent="Tome/test (+https://example.test)",

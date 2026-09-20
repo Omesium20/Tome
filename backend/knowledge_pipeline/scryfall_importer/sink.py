@@ -1,19 +1,25 @@
-"""Writing card rows to the database.
+"""Writing card rows to the knowledge database.
 
-Three operations, in descending order of safety:
+Two operations:
 
 ``upsert_batches``
-    The default. Idempotent — re-running an import updates rows in place and
-    never deletes, so a weekly refresh can't disturb a collection or a deck.
-
-``prune``
-    Removes cards the current import didn't produce, but only when nothing
-    references them. Reference-safe by construction rather than by convention.
+    What an import does, and the only thing it does. Idempotent — re-running
+    updates rows in place and never deletes, so a weekly refresh is safe to
+    schedule and cannot orphan anything.
 
 ``reset``
-    Empties the card table outright. Refuses to run while user data exists
-    unless explicitly forced, because a collection is not re-downloadable the
-    way card data is.
+    Empties the card table outright. Not part of an import; the CLI owns the
+    confirmation.
+
+**There is no prune.** It existed to clean up after a narrowed import — drop
+the cards that fell outside the new format scope — and the importer no longer
+narrows anything (`card_filter.py`). What remained afterwards was a way to
+delete rows from a corpus every client reads, guarded only by a
+`card_metadata` check that couldn't see the collections and decks it was
+really protecting, since those live on users' machines
+(`docs/data-model.md#two-databases-one-join-key`). A card Scryfall drops
+upstream now lingers as an unreferenced row, which costs bytes; deleting it
+would break whoever owns that card, which costs an install.
 """
 
 import logging
@@ -25,7 +31,7 @@ from sqlalchemy.dialects.postgresql import insert as postgresql_insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session
 
-from database.models import Card, CardMetadata, Collection, Deck, DeckCard
+from database.knowledge.models import Card, CardMetadata
 
 from .mapping import CardRow
 
@@ -37,16 +43,12 @@ _UPDATABLE_COLUMNS = [
 ]
 
 
-class ResetRefused(RuntimeError):
-    """Raised when a destructive reset would take user data with it."""
-
-
 def _insert_for(session: Session):
     """Pick the dialect-specific INSERT that supports ON CONFLICT.
 
-    Postgres is the deployment target; SQLite is the zero-setup default in
-    ``config.Settings`` and what the tests run on. Both support upsert, but
-    through separate constructs.
+    Postgres is the deployment target; SQLite is what the tests run on and
+    what a small development corpus can use. Both support upsert, but through
+    separate constructs.
     """
     dialect = session.get_bind().dialect.name
     if dialect == "postgresql":
@@ -75,18 +77,14 @@ def upsert_batches(
     rows: Iterable[CardRow],
     *,
     batch_size: int,
-) -> tuple[int, set[str]]:
-    """Insert or update ``rows`` in batches.
+) -> int:
+    """Insert or update ``rows`` in batches, returning how many were written.
 
     Consumes ``rows`` lazily, so the caller can hand over a generator chained
     all the way back to the gzip stream and never hold the corpus in memory.
-
-    Returns the number of rows written and the set of oracle ids seen, the
-    latter being what :func:`prune` needs to know what's now stale.
     """
     insert = _insert_for(session)
     written = 0
-    seen: set[str] = set()
 
     for batch in _chunked(rows, batch_size):
         # A single bulk file can legitimately contain two entries sharing an
@@ -106,93 +104,25 @@ def upsert_batches(
         session.commit()
 
         written += len(deduped)
-        seen.update(deduped)
         logger.debug("Upserted %d cards (%d total)", len(deduped), written)
 
-    return written, seen
+    return written
 
 
-def referenced_card_ids(session: Session) -> set[str]:
-    """Every card id currently pointed at by user data or generated metadata."""
-    queries = (
-        select(Collection.card_id),
-        select(DeckCard.card_id),
-        select(Deck.commander_id),
-        select(CardMetadata.card_id),
-    )
-    referenced: set[str] = set()
-    for query in queries:
-        referenced.update(row[0] for row in session.execute(query) if row[0])
-    return referenced
+def card_count(session: Session) -> int:
+    """How many cards this database currently holds."""
+    return session.scalar(select(func.count()).select_from(Card)) or 0
 
 
-def prune(session: Session, keep: set[str]) -> int:
-    """Delete cards outside ``keep`` that nothing references.
+def reset(session: Session) -> int:
+    """Empty the card table and the metadata derived from it.
 
-    Used after a narrowed import (say, Standard only) to drop the cards that
-    are no longer in scope. Anything in a collection, a deck, or with generated
-    metadata attached survives regardless — those rows would otherwise become
-    dangling foreign keys, and a user's collection is not ours to discard just
-    because they switched formats.
+    Returns the number of cards removed. There is no refusal condition for
+    this function to apply — the user data it used to protect is not in this
+    database. The caller owns the confirmation; see the CLI.
     """
-    protected = keep | referenced_card_ids(session)
-
-    stale = [
-        row[0]
-        for row in session.execute(select(Card.oracle_id))
-        if row[0] not in protected
-    ]
-    if not stale:
-        logger.info("Prune: nothing to remove")
-        return 0
-
-    # Chunked to stay clear of parameter limits on large deletes.
-    for start in range(0, len(stale), 500):
-        session.execute(
-            delete(Card).where(Card.oracle_id.in_(stale[start : start + 500]))
-        )
-    session.commit()
-
-    logger.info("Prune: removed %d unreferenced cards", len(stale))
-    return len(stale)
-
-
-def user_data_counts(session: Session) -> dict[str, int]:
-    """Row counts for the tables a reset would endanger."""
-    return {
-        "collection": session.scalar(select(func.count()).select_from(Collection)) or 0,
-        "decks": session.scalar(select(func.count()).select_from(Deck)) or 0,
-        "deck_cards": session.scalar(select(func.count()).select_from(DeckCard)) or 0,
-    }
-
-
-def reset(session: Session, *, force: bool = False) -> int:
-    """Empty the card table.
-
-    Card data is derived and can always be re-downloaded, so resetting it is
-    cheap in itself. What isn't cheap is the collection and decks hanging off
-    it, which is why this refuses to proceed while they exist unless the caller
-    insists.
-    """
-    counts = user_data_counts(session)
-    if any(counts.values()) and not force:
-        detail = ", ".join(f"{count} {table}" for table, count in counts.items() if count)
-        raise ResetRefused(
-            f"Refusing to reset: the database holds user data ({detail}). "
-            "Deleting cards would orphan it. Re-run with --force if you really "
-            "mean to discard that."
-        )
-
-    if force and any(counts.values()):
-        # Foreign keys point at cards.oracle_id, so the dependents have to go
-        # first. The user was warned and asked for this explicitly.
-        logger.warning("Reset --force: discarding %s", counts)
-        session.execute(delete(DeckCard))
-        session.execute(delete(Deck))
-        session.execute(delete(Collection))
-
     session.execute(delete(CardMetadata))
-    removed = session.scalar(select(func.count()).select_from(Card)) or 0
+    removed = card_count(session)
     session.execute(delete(Card))
     session.commit()
 

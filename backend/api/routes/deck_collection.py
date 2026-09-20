@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from api.schemas import DeckSummary
-from database.session import get_session
+from database.local.session import get_session
 
 router = APIRouter()
 

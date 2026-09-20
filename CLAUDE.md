@@ -49,7 +49,7 @@ Which doc to open for a given topic. `PRD.md`, `docs/architecture.md`, and `docs
 | [docs/data-model.md](docs/data-model.md) | which entities live in which database · entity schemas — Card, CardMetadata, CardDocument, ImportRun (cloud) · Collection, Deck, DeckCard, CardCache (local) |
 | [docs/knowledge-api.md](docs/knowledge-api.md) | the hosted read service — why a service not a connection string · endpoints (`/meta`, `/cards`, `/cards/resolve`, `/retrieve`) · filters as hard constraints · versioning & client compatibility · caching/degradation rules for clients · operating it |
 | [docs/model-providers.md](docs/model-providers.md) | the `ModelProvider` interface · supported backends (Anthropic, OpenAI-compatible, Ollama) · Anthropic API specifics · capability floor & what weak models actually break · the validation repair loop · config vars · testing with a fake provider |
-| [docs/knowledge-pipeline.md](docs/knowledge-pipeline.md) | who runs the pipeline & against which database · Scryfall Importer — module layout & CLI · format profiles registry · why the import isn't format-scoped by default · pool sizes · bulk data API · card schema → `Card` field mapping · card faces/DFCs & the merge rule · legalities · upsert semantics · **why prune/reset lost their safety net** · rate limits |
+| [docs/knowledge-pipeline.md](docs/knowledge-pipeline.md) | who runs the pipeline & against which database · Scryfall Importer — module layout & CLI · **why the import takes every card and has no format flags** · what still gets excluded · pool sizes per format · bulk data API · card schema → `Card` field mapping · card faces/DFCs & the merge rule · legalities · upsert semantics · `--reset` and its confirmation · rate limits |
 | [docs/frontend.md](docs/frontend.md) | routing & app shell · mock backend layer & `VITE_USE_MOCKS` switch · working-deck vs. saved-deck handoff · shared collection filter logic/UI · drag-and-drop contract · design tokens · dev gotchas |
 | [docs/self-hosting.md](docs/self-hosting.md) | running the client — Docker vs. local setup · choosing a model (local vs. frontier) · bring-your-own database · full env var reference · running your own knowledge plane & what it costs · choosing a card pool · refreshing card data · upgrading · troubleshooting |
 
@@ -76,7 +76,9 @@ Which doc to open for a given topic. `PRD.md`, `docs/architecture.md`, and `docs
 
 Both sides are scaffolded. The frontend is a working UI running against a mock backend layer (see `docs/frontend.md`); the backend has real module structure but its route handlers and pipeline steps are still `NotImplementedError` stubs.
 
-> **Status: the two-plane split is designed, not yet built.** The docs describe the target architecture and are the spec to build toward. What exists today: the Scryfall importer, a single `database/models.py` with all entities in one schema, a single Alembic config, and `ai/claude_client.py` (a bare Anthropic handle). Not yet written: `knowledge_api/`, the `ModelProvider` interface and its providers, the `card_documents` table and `pgvector` setup, the `knowledge_models.py`/`local_models.py` split, the two Alembic configs (`-n local` / `-n knowledge`), and `CardCache`. Commands below that reference those are the intended shape, not currently runnable — treat a mismatch as work to do, not as a doc bug.
+> **Status: the data layer is split; the services on top of it are not built yet.** What exists today: the Scryfall importer, the `database/knowledge/` and `database/local/` packages, per-plane settings (`KnowledgeSettings` / `LocalSettings`, no combined accessor), the two Alembic lineages (`-n local` / `-n knowledge`), and `ai/claude_client.py` (a bare Anthropic handle). Every command below is runnable.
+>
+> Not yet written: `knowledge_api/`, the `ModelProvider` interface and its providers, the `card_documents` table and `pgvector` setup, `CardCache`, and the collection/deck service layer — so the local database currently has a schema and no readers. Treat a mismatch between these docs and the code as work to do, not as a doc bug.
 
 **Frontend (`frontend/`, Vite + React SPA)** — all verified working:
 ```
@@ -95,13 +97,15 @@ pip install -r requirements.txt
 pytest                          # test suite
 alembic -n local upgrade head   # the user's own DB — required before first run
 alembic -n knowledge upgrade head                    # the shared corpus (maintainers only)
-alembic -n local revision --autogenerate -m "..."    # after editing database/local_models.py
-alembic -n knowledge revision --autogenerate -m "..." # after editing database/knowledge_models.py
+alembic -n local revision --autogenerate -m "..."    # after editing database/local/models.py
+alembic -n knowledge revision --autogenerate -m "..." # after editing database/knowledge/models.py
 ```
+
+There is no unnamed `[alembic]` section in `alembic.ini` — a bare `alembic upgrade head` fails rather than guessing a plane. Autogenerate against an **empty** database; pointed at one that already holds the other plane's tables it will emit drops instead of creates.
 
 **The two databases migrate independently** — `-n local` against the user's machine, `-n knowledge` against the cloud Postgres. Picking the wrong one either fails or writes user-visible card data from a laptop. A client upgrade must never require a knowledge migration to land first; that's what the Knowledge API's versioning is for.
 
-All settings are read through `backend/config.py` (pydantic-settings), which loads `backend/.env` itself — so `python -m ...` entry points get the same config the API does. Never read `os.environ` directly in new code; add a field to `Settings` instead.
+All settings are read through `backend/config.py` (pydantic-settings), which loads `backend/.env` itself — so `python -m ...` entry points get the same config the API does. Never read `os.environ` directly in new code; add a field to the right settings class instead — `KnowledgeSettings` or `LocalSettings`, never both. There is deliberately no combined `get_settings()`: a caller names the plane it wants (`get_knowledge_settings()` / `get_local_settings()`), or uses `get_base_settings()` for the handful of values that belong to neither database.
 
 Dev servers — `fastapi dev` takes a direct file path, so run it from the module's own directory:
 ```
@@ -109,14 +113,12 @@ cd backend/api            && fastapi dev main.py   # client backend on :8000 (ro
 cd backend/knowledge_api  && fastapi dev main.py   # knowledge read service on :8001
 ```
 
-**Knowledge Pipeline (offline, maintainers only)** — from `backend/`, writing to the **cloud** Postgres. Step 1 is implemented; the rest are still stubs:
+**Knowledge Pipeline (offline, maintainers only)** — from `backend/`, writing to `KNOWLEDGE_DATABASE_URL`. Step 1 is implemented; the rest are still stubs:
 ```
-python -m knowledge_pipeline.scryfall_importer            # interactive format picker
-python -m knowledge_pipeline.scryfall_importer --format commander
-python -m knowledge_pipeline.scryfall_importer --format all --if-newer   # weekly refresh
-python -m knowledge_pipeline.scryfall_importer --dry-run --limit 500     # no writes
-python -m knowledge_pipeline.scryfall_importer --format standard --prune # reclaim space
-python -m knowledge_pipeline.scryfall_importer --format all --reset      # start over
+python -m knowledge_pipeline.scryfall_importer                        # the whole card pool
+python -m knowledge_pipeline.scryfall_importer --if-newer             # weekly refresh
+python -m knowledge_pipeline.scryfall_importer --dry-run --limit 500  # no writes
+python -m knowledge_pipeline.scryfall_importer --reset                # start over (destructive)
 
 python -m knowledge_pipeline.metadata_generator   # stub
 python -m knowledge_pipeline.document_generator   # stub
@@ -125,9 +127,9 @@ python -m knowledge_pipeline.embeddings           # stub
 
 Three things to know before changing the importer:
 
-- **The import is deliberately not format-scoped by default.** Commander-legal cards are 96.5% of the entire card pool (31,830 of 32,988), so filtering the import saves nothing. The full corpus is imported with the complete `legalities` map, and format becomes a filter on the *expensive* stages — metadata generation (one model call per card) and embedding. `--format` on the import exists for constrained hosts and local development.
+- **Every card is imported, and there is no format flag.** One rule decides: is the object a card (`card_filter.py`)? Legality is never consulted, so the corpus holds all 34,831 cards including the 2,079 legal in no format at all — a collection is not a legal deck, and CSV import has to resolve cards people actually own. Format scoping existed so a user hosting the corpus themselves could trim it; the corpus is hosted centrally now, so that reason is gone. **Filter by format downstream** — at the AI stages, or on the client.
 - **`Card`'s primary key is `oracle_id`, not Scryfall's `id`.** `id` is a printing UUID that rotates when a card is reprinted. `oracle_id` is now the join key *across the plane boundary* — every local collection and deck row references it logically, with no foreign key able to enforce it — so a rotating key would orphan user data on machines we can't see. Imports remain idempotent upserts.
-- **`--prune` and `--reset` lost their safety net.** Both guards worked by seeing `collection`/`decks` in the same database; those tables are now on users' machines. Neither can tell what a deletion would orphan. Don't prune a shared corpus, and gate `--reset` with credentials rather than trusting its prompt — see `docs/knowledge-pipeline.md#re-running-is-safe`.
+- **An import can add and update, never delete.** `--prune` is gone with the format scoping that justified it, and `--force` with the user-data guard it used to override — both guards read `collection`/`decks` from the same database, and those tables are on users' machines now, so `sink.py` neither queries nor imports them. `--reset` is the one destructive path: it prints the target database and card count, then requires that database's name typed back, and always refuses without a terminal. Gate it with credentials rather than the prompt — see `docs/knowledge-pipeline.md#re-running-is-safe`.
 
 ---
 
@@ -164,10 +166,10 @@ docker compose -f Dockercompose.yaml exec db psql -U tome -d tome
 docker compose -f Dockercompose.yaml config --quiet   # validate the file; silence = valid
 
 # Only when running your own knowledge plane: import the card corpus into
-# KNOWLEDGE_DATABASE_URL. --format is required here -- there's no terminal to
-# prompt on, so the importer exits rather than hanging.
+# KNOWLEDGE_DATABASE_URL. Safe without a terminal -- there is nothing to
+# select, so the importer never prompts.
 docker compose -f Dockercompose.yaml exec backend \
-  python -m knowledge_pipeline.scryfall_importer --format all
+  python -m knowledge_pipeline.scryfall_importer
 ```
 
 `VITE_*` values are **build args, not runtime env** — Vite inlines them at build time, so changing them requires `--build` to take effect (see `docs/frontend.md`). Compose sets `VITE_USE_MOCKS=true` for now, same as `npm run dev` — the real backend has no working `/collection` or `/decks` endpoints yet (no service layer, and router paths don't match the frontend's `/api/*` calls). Flip it to `"false"` once those are implemented. Note that the frontend's gateway (`src/lib/api.ts`) talks only to the **local** backend — the Knowledge API is the local backend's dependency, never the browser's.

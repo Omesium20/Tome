@@ -6,7 +6,7 @@ Detailed technical reference for the Knowledge Pipeline introduced in `docs/arch
 
 Two consequences for anyone working in here:
 
-- **`DATABASE_URL` for a pipeline run points at the cloud Postgres**, with a read-write role. The Knowledge API uses a separate read-only role against the same database. Getting this backwards writes user-visible card data from a laptop.
+- **`KNOWLEDGE_DATABASE_URL` points at the cloud Postgres**, with a read-write role. It is a field on `KnowledgeSettings` (`backend/config.py`) with no default and no fallback: an unset value is an error, never a quiet SQLite file. The Knowledge API uses a separate read-only role against the same database. The client's own `LOCAL_DATABASE_URL` is a different setting on a different class, and nothing in this pipeline can read it.
 - **A run is a publish.** There is no per-user copy to roll forward independently, so a bad metadata prompt or a half-finished embed is visible to every user at once. Stage-by-stage, resumable, and idempotent are requirements, not niceties — which is already how the importer is built.
 
 Pipeline (offline, run from `backend/`):
@@ -16,12 +16,12 @@ Scryfall → Card Import → Model Metadata Generation → Knowledge Document Ge
   → Hugging Face Embeddings → Cloud Postgres (pgvector)
 ```
 
-| Stage | Module | Writes | Status |
-|---|---|---|---|
-| Card Import | `knowledge_pipeline/scryfall_importer/` | `cards`, `import_runs` | **implemented** |
-| Metadata Generation | `knowledge_pipeline/metadata_generator.py` | `card_metadata` | stub |
-| Knowledge Document Generation | `knowledge_pipeline/document_generator.py` | `card_documents.document` | stub |
-| Embeddings | `knowledge_pipeline/embeddings.py` | `card_documents.embedding` | stub |
+| Stage                         | Module                                     | Writes                     | Status          |
+| ----------------------------- | ------------------------------------------ | -------------------------- | --------------- |
+| Card Import                   | `knowledge_pipeline/scryfall_importer/`    | `cards`, `import_runs`     | **implemented** |
+| Metadata Generation           | `knowledge_pipeline/metadata_generator.py` | `card_metadata`            | stub            |
+| Knowledge Document Generation | `knowledge_pipeline/document_generator.py` | `card_documents.document`  | stub            |
+| Embeddings                    | `knowledge_pipeline/embeddings.py`         | `card_documents.embedding` | stub            |
 
 The output of Card Import is the `Card` entity described in `docs/data-model.md#card` — imported directly from Scryfall, never AI-generated. The remaining stages are undocumented until implemented.
 
@@ -40,82 +40,82 @@ Implemented in `backend/knowledge_pipeline/scryfall_importer/`. Reference notes 
 Split by responsibility, with every stage a generator so the corpus is never held in memory:
 
 ```
-catalog -> download -> stream -> filter -> map -> upsert -> [prune]
+catalog -> download -> stream -> filter -> map -> upsert
 ```
 
 | Module | Responsibility |
 |---|---|
 | `bulk.py` | Catalog lookup, download to cache, streamed gzip/JSONL decode |
-| `formats.py` | `FormatProfile` dataclass and the `PROFILES` registry — every format is live data, none scaffolded |
+| `card_filter.py` | The one import filter: is this object a card? Plus `NON_CARD_LAYOUTS` |
 | `mapping.py` | Scryfall JSON → `CardRow`, including the face-merge rules |
-| `sink.py` | Batched upsert, reference-safe prune, guarded reset |
+| `sink.py` | Batched upsert and an unguarded reset. No delete path inside an import |
 | `pipeline.py` | `import_cards()` — wires the stages, writes an `ImportRun` |
-| `__main__.py` | CLI and the (currently dormant) interactive format picker |
+| `__main__.py` | CLI: flags, and the typed confirmation on `--reset` |
 
 ### Commands
 
+All of these write to `KNOWLEDGE_DATABASE_URL`.
+
 ```
-python -m knowledge_pipeline.scryfall_importer                            # interactive format picker
-python -m knowledge_pipeline.scryfall_importer --format commander
-python -m knowledge_pipeline.scryfall_importer --format all --if-newer    # weekly refresh
-python -m knowledge_pipeline.scryfall_importer --dry-run --limit 500      # no writes
-python -m knowledge_pipeline.scryfall_importer --format standard --prune  # reclaim space
-python -m knowledge_pipeline.scryfall_importer --format all --reset       # start over
+python -m knowledge_pipeline.scryfall_importer                        # the whole card pool
+python -m knowledge_pipeline.scryfall_importer --if-newer             # weekly refresh
+python -m knowledge_pipeline.scryfall_importer --dry-run --limit 500  # no writes
+python -m knowledge_pipeline.scryfall_importer --force-download       # ignore the cache
+python -m knowledge_pipeline.scryfall_importer --reset                # start over (destructive)
 ```
 
-`--format` defaults to `all` (every registered profile is enabled and importable — see below) and is chosen interactively when omitted on a real terminal. A non-interactive caller (Docker, CI, cron) must pass `--format` explicitly, since there's no terminal to prompt on and blocking on stdin would hang the process forever.
+**There are no format flags.** `--format` and `--prune` were removed, not defaulted — passing either exits 2 with "unrecognized arguments", because a flag that silently does nothing is worse than one that errors. The import takes the whole pool every time, so it is safe to run unattended: nothing to select, nothing to prompt for.
 
-### The import is deliberately not format-scoped
+### The import is not format-scoped, and cannot be made so
 
-Tome is a Commander deck builder, but the importer does not filter to Commander (or any format) by default. Commander-legal cards are 96.5% of the entire card pool (31,830 of 32,988), so scoping the *import* to Commander would save almost nothing while making every other format permanently unavailable without a full re-import. Instead, the full corpus is imported with its complete `legalities` map intact, and format becomes a filter applied later, at the stages where pool size actually costs something — `metadata_generator.py` (one model call per card) and `embeddings.py`. `--format` on the import exists mainly for a constrained host, or for a developer who wants a smaller table to work against locally.
+One rule decides what gets imported: **is this object a card?** If so it lands, with its complete `legalities` map, whatever that map says. Legality is never consulted, and there is no flag to change that.
 
-Centralizing the knowledge base strengthens this argument rather than weakening it. The import now runs once against one shared database, so the disk it costs is paid once by us — while keeping every format answerable means a future Brawl or Oathbreaker mode is a downstream filter, not a re-import that every user would have to wait on.
+Format scoping existed for a deployment that no longer exists. When every user hosted the corpus themselves, importing only the cards they needed saved *their* disk and *their* time. The corpus is hosted centrally now, so breadth is paid once, by us — and three arguments then point the same way:
 
-### Formats are data, not code
+- **Filtering costs more than it saves.** Commander-legal cards are 91% of the card objects in the file. The expensive stages are `metadata_generator.py` (one model call per card) and `embeddings.py`; that is where a format filter belongs, and applying it there needs no re-import.
+- **A collection is not a legal deck.** CSV import resolves *owned* card names through the Knowledge API. 1,945 paper-printed cards are legal in no format at all, 1,244 of them Un-set cards. Excluding them would turn each into a permanent placeholder in somebody's collection, in an app that is explicitly proxy-friendly.
+- **Format belongs to the client.** Deck building filters on `Card.legalities`, which every row carries whole, so a future Brawl or Oathbreaker mode is a client-side predicate rather than a re-import every user waits on.
 
-A format is a `FormatProfile` entry in `formats.PROFILES`, because nearly every format reduces to "`legalities[key]` is one of these values". Adding a new format is a dict entry, not a class. Every profile currently registered — `all`, `commander`, `vintage`, `legacy`, `oathbreaker`, `modern`, `duel`, `pioneer`, `pauper`, `paupercommander`, `brawl`, `standard` — is fully live; none are scaffolded or gated behind a flag.
+One nuance the client-side filter will need, recorded here because the deleted `formats.py` used to own it: a **restricted** card is legal in Vintage, limited to one copy. A naive `legalities[fmt] == "legal"` check wrongly discards Black Lotus.
 
-| Piece | Stays format-generic |
-|---|---|
-| `PROFILES` / `resolve()` | resolves any registered profile by name, case-insensitively |
-| CLI picker | lists every profile in `PROFILES`, largest pool first |
-| `ImportRun.format_profile` | records which pool each run wrote |
-| `Card.legalities` | the whole map is stored, so any format is answerable after the fact |
+### What still gets excluded
 
-Nothing outside `formats.py` hardcodes a format name. Adding a new one is a `PROFILES` entry — not a pipeline change.
+`NON_CARD_LAYOUTS` in `card_filter.py` is the entire filter: tokens, double-faced tokens, emblems, art series, vanguards, schemes, planes, augments, hosts, and `front_card` (Jumpstart-style product dividers — `type_line` is literally `"Card"`, `set_type` is `memorabilia`). That removes 4,075 of the 2026-09-20 snapshot's 38,906 objects.
 
-Per-format variance is expressible as a field: `accepted` widens the set of legality values that count as playable, which is what the `vintage` entry uses — a **restricted** card is legal there (limited to one copy), and a plain `== "legal"` check would wrongly discard Black Lotus.
+Two layouts that look like they belong on that list but don't: `prepare` cards are genuine split-style spells, and 352 `normal` cards are vanilla creatures with legitimately empty oracle text.
 
-`NON_CARD_LAYOUTS` is excluded from every profile: tokens, emblems, art series, vanguards, schemes, planes, augments, hosts, and `front_card` (Jumpstart-style product dividers — `type_line` is literally `"Card"`, `set_type` is `memorabilia`). That removes 3,770 of the snapshot's 38,626 objects. Two layouts that look like artifacts but are **not** excluded: `prepare` cards are genuine split-style spells, and 352 `normal` cards are vanilla creatures with legitimately empty oracle text.
+The filter **fails open** — an unrecognized layout is treated as a card. A layout Scryfall adds after this list was written is far likelier to be a new card type than a new kind of token, and a missing card is worse than a stray one.
 
 ### Pool sizes
 
-Measured against Scryfall's search API, for context on what the profiles cost:
+The corpus holds all of it. The counts below come from the imported 2026-09-20 snapshot and are what a *downstream* filter would select — the numbers that matter when budgeting the AI stages.
 
-| Pool | Unique cards |
+| Pool | Cards |
 |---|---|
-| every real card | 32,988 |
+| **imported (every card object)** | **34,831** |
 | `legal:commander` | 31,830 |
+| `legal:vintage` | 31,690 |
+| `legal:legacy` | 31,672 |
 | `legal:modern` | 22,450 |
-| `legal:pauper` | 10,793 |
-| `legal:pioneer` | 13,000 |
+| `legal:pioneer` | 14,817 |
+| `legal:pauper` | 10,803 |
 | `legal:standard` | 4,887 |
+| legal in no format at all | 2,079 |
 
-Commander is 96.5% of the entire card pool, so scoping the *import* to it saves almost nothing. Where the pool size does bite is `metadata_generator.py` (one Claude call per card) and `embeddings.py`, which are proportional to whatever pool is selected at that stage.
+Commander is 91% of what's imported, which is exactly why scoping the *import* to it wasn't worth the cost. Where pool size does bite is `metadata_generator.py` (one model call per card) and `embeddings.py`, both proportional to whatever pool is selected *at that stage* — and those 2,079 never-legal cards are the obvious first thing to exclude there.
 
 ### Re-running is safe
 
 - **Upsert, never replace.** Writes are `INSERT ... ON CONFLICT (oracle_id) DO UPDATE` in batches of `IMPORT_BATCH_SIZE`, so a weekly refresh updates rows in place and cannot disturb a collection or a deck. Duplicate `oracle_id`s within a batch (reversible cards, some promos) are collapsed first, because Postgres rejects an `ON CONFLICT` statement that touches the same key twice.
-- **`--prune` and `--reset` lost their safety net when collections went local — treat both as destructive now.** Both guards were built on seeing user data in the same database: `--prune` skipped any card referenced by `collection`/`deck_cards`/`decks.commander_id`, and `--reset` refused outright while those tables held rows. In the split model those tables are **not in this database** (`data-model.md#two-databases-one-join-key`), so neither check can see the user data it was protecting. Deleting a card from the shared corpus now silently orphans a logical reference on some user's machine — the row survives, but the card behind it stops resolving.
+- **An import cannot delete a row.** `--prune` is gone. It existed to clean up after a *narrowed* import — drop the cards that fell outside the new format scope — and nothing narrows the import any more. What would have been left is a way to delete rows from a corpus every client reads, guarded only by a `card_metadata` check that couldn't see the collections and decks it was really protecting, since those live on users' machines (`data-model.md#two-databases-one-join-key`). A card Scryfall drops upstream now lingers as an unreferenced row, costing bytes; deleting it would break whoever owns that card, costing an install.
 
-  What that changes in practice:
+- **`--reset` is the one destructive path, and its confirmation guards the wrong-database case.** It used to refuse while `collection`/`decks` held rows. Those tables are not in this database, so the check couldn't see what it protected and was removed rather than left returning a reassuring zero. What replaced it: `--reset` prints the target URL and the number of cards it would delete, then requires that database's own name typed back. There is no `--force` — the flag existed only to override the user-data refusal, and a guard an unattended process can waive is not a guard. A non-interactive `--reset` always refuses.
 
-  - **`--prune` is for reclaiming space on a development database, not on the shared one.** On the shared corpus, a banned card is still a card someone owns and wants to see in their collection. Keep it. The pool is ~33,000 rows and tens of megabytes; there is nothing here worth reclaiming at the cost of breaking installs.
-  - **What still protects rows in this database** is the `card_metadata` reference check — a card with generated metadata is never pruned. That is now the only automatic guard, and it only covers cards the AI stages have already processed.
-  - **A client must tolerate an unresolvable `oracle_id` regardless**, because this is the same case as a restored backup or a card from a newer snapshot. Batch-resolve through the Knowledge API, render a placeholder, never crash.
-  - **`--reset` no longer has a meaningful refusal condition here.** It will run. On the shared database that is a full corpus wipe visible to every user, so gate it operationally (credentials, not a prompt) rather than trusting the flag.
+  Two things that follow regardless:
 
-  On a self-hosted single-machine deployment where the knowledge database and the local database happen to be the same Postgres, the original guards still apply and still work.
+  - **A client must tolerate an unresolvable `oracle_id`.** This is the same case as a restored backup or a card from a newer snapshot. Batch-resolve through the Knowledge API, render a placeholder, never crash.
+  - **Prefer an operational gate over the prompt.** On the shared corpus a reset is a full wipe visible to every user at once; credentials that simply don't permit it beat any confirmation.
+
 - **`--if-newer`** compares Scryfall's `updated_at` against the newest completed `ImportRun` and exits early, making a scheduled refresh cheap. A `--dry-run` deliberately writes no `ImportRun`, so it can't cause the next real import to be skipped.
 
 Downloads are cached under `SCRYFALL_CACHE_DIR` (default `backend/data/scryfall/`, gitignored) with Scryfall's snapshot timestamp in the filename, written via a `.partial` file so an interrupted download is never mistaken for a complete one.
@@ -231,13 +231,13 @@ Source: https://scryfall.com/docs/api/layouts, https://scryfall.com/docs/api/car
 }
 ```
 
-**Decision: the whole map is stored, as a single `legalities` JSON column on `Card`.** Not a boolean per format — a new format appearing upstream then needs no migration — and not Commander-only, because the format model above depends on being able to ask about any format after the fact. Postgres queries it directly:
+**Decision: the whole map is stored, as a single `legalities` JSON column on `Card`.** Not a boolean per format — a new format appearing upstream then needs no migration — and not Commander-only, because this column is now the *only* thing that knows about formats. Every format question, on the client or at the AI stages, is answered from it. Postgres queries it directly:
 
 ```sql
 select count(*) from cards where legalities->>'commander' = 'legal';
 ```
 
-Note `"restricted"` is a legality *value*, not a separate state to ignore: a restricted card is legal in its format, limited to one copy. `FormatProfile.accepted` is what encodes that.
+Note `"restricted"` is a legality *value*, not a separate state to ignore: a restricted card is legal in its format, limited to one copy. Nothing in the importer acts on that — it stores the map and moves on — but whatever filters by format on the client has to, or a `== "legal"` check silently discards Black Lotus from Vintage.
 
 Source: https://scryfall.com/docs/api/cards/search
 

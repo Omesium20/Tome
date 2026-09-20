@@ -22,9 +22,16 @@ services:
     env_file:
       - ./backend/.env
     environment:
-      # Overrides the sqlite default in backend/.env — env_file values are applied
+      # The user's OWN database — collection and decks — not the card corpus.
+      # Overrides the sqlite default in backend/.env; env_file values are applied
       # first, then `environment` wins on top of them.
-      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-tome}:${POSTGRES_PASSWORD:-changeme}@db:5432/${POSTGRES_DB:-tome}
+      #
+      # LOCAL_DATABASE_URL, not DATABASE_URL: that name was retired when the
+      # schema split in two, and config.py now refuses to start if it is set,
+      # because it can't say which of the two databases was meant. The card
+      # corpus is reached over HTTPS via KNOWLEDGE_API_URL and is never
+      # migrated or written from a client container.
+      LOCAL_DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-tome}:${POSTGRES_PASSWORD:-changeme}@db:5432/${POSTGRES_DB:-tome}
     depends_on:
       db:
         condition: service_healthy

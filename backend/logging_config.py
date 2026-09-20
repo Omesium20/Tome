@@ -15,7 +15,7 @@ module, and messages propagate up to the root logger configured below.
 import logging
 import sys
 
-from config import get_settings
+from config import get_base_settings
 
 _CONFIGURED = False
 
@@ -25,7 +25,7 @@ def configure_logging() -> None:
     if _CONFIGURED:
         return
 
-    level_name = get_settings().log_level.upper()
+    level_name = get_base_settings().log_level.upper()
     level = getattr(logging, level_name, logging.INFO)
 
     handler = logging.StreamHandler(sys.stdout)
@@ -44,7 +44,7 @@ def configure_logging() -> None:
     # Third-party libraries default to chatty INFO/DEBUG logging; keep them
     # quiet unless the app itself is explicitly running at DEBUG.
     if level > logging.DEBUG:
-        for noisy_logger in ("httpx", "chromadb", "sentence_transformers"):
+        for noisy_logger in ("httpx", "sentence_transformers"):
             logging.getLogger(noisy_logger).setLevel(logging.WARNING)
 
     _CONFIGURED = True

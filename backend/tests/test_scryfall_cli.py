@@ -1,9 +1,19 @@
-"""Command line behaviour: format selection and the guards on the destructive paths."""
+"""Command line behaviour: argument handling and the guard on the destructive path.
+
+Format selection used to live here — a --format flag, an interactive picker,
+and the refusals around them. The import takes the whole card pool now, so
+all of that is gone rather than defaulted.
+"""
+
+from datetime import datetime
+from types import SimpleNamespace
 
 import pytest
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 
+from database.knowledge.models import Base as KnowledgeBase, Card
 from knowledge_pipeline.scryfall_importer import __main__ as cli
-from knowledge_pipeline.scryfall_importer.formats import PROFILES
 
 
 class _StubReport:
@@ -18,17 +28,6 @@ def no_terminal(monkeypatch):
 
 
 @pytest.fixture
-def terminal_at_eof(monkeypatch):
-    """A shell that claims to be a terminal but whose stdin is already closed.
-
-    Some CI runners and container shells do exactly this, and it used to crash
-    the picker with an EOFError traceback.
-    """
-    monkeypatch.setattr(cli.sys.stdin, "isatty", lambda: True)
-    monkeypatch.setattr("builtins.input", lambda *_: (_ for _ in ()).throw(EOFError()))
-
-
-@pytest.fixture
 def stub_import(monkeypatch):
     """Capture what main() would have imported, without touching the network."""
     calls = []
@@ -36,48 +35,91 @@ def stub_import(monkeypatch):
     return calls
 
 
+def _card(oracle_id: str) -> Card:
+    return Card(
+        oracle_id=oracle_id,
+        scryfall_id=f"print-{oracle_id}",
+        name=f"Card {oracle_id}",
+        mana_cost="{G}",
+        mana_value=1.0,
+        oracle_text=None,
+        colors=["G"],
+        color_identity=["G"],
+        type_line="Creature — Test",
+        power="1",
+        toughness="1",
+        loyalty=None,
+        defense=None,
+        keywords=[],
+        image_url=None,
+        layout="normal",
+        legalities={"commander": "legal"},
+        updated_at=datetime(2026, 1, 1),
+    )
+
+
 @pytest.fixture
-def two_formats(monkeypatch):
-    """Pretend a second profile has been enabled, to exercise the picker."""
-    enabled = {name: PROFILES[name] for name in ("commander", "standard")}
-    monkeypatch.setattr(cli, "enabled_profiles", lambda: enabled)
-    monkeypatch.setattr(cli, "selectable_names", lambda: ["commander", "edh", "standard"])
+def knowledge_db(monkeypatch, tmp_path):
+    """A real knowledge database for the CLI's reset path to open.
+
+    File-backed rather than in-memory because the confirmation prompt asks for
+    the database *name*, and an in-memory URL hasn't got one.
+    """
+    from database.knowledge import session as knowledge_session
+
+    path = tmp_path / "tome_knowledge.db"
+    engine = create_engine(f"sqlite:///{path}")
+    KnowledgeBase.metadata.create_all(engine)
+    maker = sessionmaker(bind=engine)
+
+    with maker() as session:
+        session.add_all([_card("a"), _card("b")])
+        session.commit()
+
+    # _run_reset imports these inside the function body, so patching the
+    # module attributes is enough — no engine is built from real settings.
+    monkeypatch.setattr(knowledge_session, "get_engine", lambda: engine)
+    monkeypatch.setattr(knowledge_session, "new_session", maker)
+
+    reset_calls = []
+    real_reset = cli.sink.reset
+
+    def counting_reset(session):
+        reset_calls.append(session)
+        return real_reset(session)
+
+    monkeypatch.setattr(cli.sink, "reset", counting_reset)
+
+    try:
+        yield SimpleNamespace(name=str(path), reset_calls=reset_calls)
+    finally:
+        engine.dispose()
 
 
-def test_no_format_imports_commander_without_asking(no_terminal, stub_import):
-    """One enabled format means there's nothing to choose — Docker and cron
-    just work, with no --format to remember."""
+def test_no_arguments_imports_everything(no_terminal, stub_import):
+    """Docker and cron just work: nothing to select, nothing to prompt for."""
     assert cli.main([]) == 0
-    assert stub_import[0]["format_name"] == "commander"
+    assert stub_import == [
+        {"dry_run": False, "limit": None, "if_newer": False, "force_download": False}
+    ]
 
 
-def test_no_format_on_a_terminal_does_not_prompt(monkeypatch, stub_import):
-    monkeypatch.setattr(cli.sys.stdin, "isatty", lambda: True)
-    monkeypatch.setattr("builtins.input", lambda *_: pytest.fail("must not prompt"))
+def test_format_is_no_longer_accepted(no_terminal, capsys):
+    """Removed rather than ignored — a flag that silently does nothing is
+    worse than one that errors."""
+    with pytest.raises(SystemExit) as excinfo:
+        cli.main(["--format", "commander"])
 
-    assert cli.main([]) == 0
-    assert stub_import[0]["format_name"] == "commander"
-
-
-def test_no_format_at_eof_does_not_traceback(terminal_at_eof, stub_import):
-    assert cli.main([]) == 0
-    assert stub_import[0]["format_name"] == "commander"
+    assert excinfo.value.code == 2
+    assert "unrecognized arguments" in capsys.readouterr().err
 
 
-def test_edh_is_accepted_as_a_name_for_commander(no_terminal, stub_import):
-    assert cli.main(["--format", "edh"]) == 0
-    assert stub_import[0]["format_name"] == "commander"
+def test_prune_is_no_longer_accepted(no_terminal, capsys):
+    with pytest.raises(SystemExit) as excinfo:
+        cli.main(["--prune"])
 
-
-def test_unknown_format_is_rejected(no_terminal, capsys):
-    assert cli.main(["--format", "pokemon"]) == 2
-    assert "Unknown format" in capsys.readouterr().err
-
-
-def test_scaffolded_format_is_refused_with_an_explanation(no_terminal, capsys):
-    """A Standard pool in a Commander app is exactly the confusion to avoid."""
-    assert cli.main(["--format", "standard"]) == 2
-    assert "Commander-only" in capsys.readouterr().err
+    assert excinfo.value.code == 2
+    assert "unrecognized arguments" in capsys.readouterr().err
 
 
 def test_reset_and_dry_run_are_contradictory(no_terminal, capsys):
@@ -90,75 +132,52 @@ def test_limit_must_be_positive(no_terminal, capsys):
     assert "--limit" in capsys.readouterr().err
 
 
-def test_force_without_reset_says_it_was_ignored(no_terminal, stub_import, capsys):
-    """Silence would let someone think they'd authorized something that never ran."""
-    assert cli.main(["--force"]) == 0
-    assert "only applies to --reset" in capsys.readouterr().err
+def test_reset_without_a_terminal_refuses(no_terminal, knowledge_db, capsys):
+    """Unattended callers must never fall through a destructive confirmation.
 
-
-def test_forced_reset_without_a_terminal_refuses(monkeypatch, no_terminal, capsys):
-    """--force must not be enough on its own when nobody can confirm."""
-    monkeypatch.setattr(
-        cli.sink, "user_data_counts", lambda _s: {"collection": 5, "decks": 1, "deck_cards": 99}
-    )
-    monkeypatch.setattr(
-        cli.sink, "reset", lambda *a, **k: pytest.fail("reset must not run")
-    )
-
-    assert cli.main(["--reset", "--force"]) == 1
+    There is no --force to override this any more. The flag existed to get
+    past the user-data check, and that check is gone — so the only remaining
+    guard has to be the one that can't be waived.
+    """
+    assert cli.main(["--reset"]) == 1
     out = capsys.readouterr()
-    assert "5 collection" in out.out
     assert "Aborted" in out.err
+    assert not knowledge_db.reset_calls
 
 
-def test_reset_refused_when_user_data_exists(monkeypatch, no_terminal, capsys):
-    def refuse(_session, *, force):
-        raise cli.sink.ResetRefused("Refusing to reset: the database holds user data.")
-
-    monkeypatch.setattr(cli.sink, "user_data_counts", lambda _s: {"collection": 3})
-    monkeypatch.setattr(cli.sink, "reset", refuse)
+def test_reset_names_the_database_it_is_about_to_empty(monkeypatch, knowledge_db, capsys):
+    """Wrong-database is the hazard that replaced wrong-data, so say which one."""
+    monkeypatch.setattr(cli.sys.stdin, "isatty", lambda: True)
+    monkeypatch.setattr("builtins.input", lambda *_: "not-the-database-name")
 
     assert cli.main(["--reset"]) == 1
-    assert "Refusing to reset" in capsys.readouterr().err
+    out = capsys.readouterr()
+    assert "2 cards" in out.out          # the count it would have deleted
+    assert knowledge_db.name in out.out  # the database it would have hit
+    assert "Aborted" in out.err
+    assert not knowledge_db.reset_calls
 
 
-def test_typed_confirmation_requires_the_exact_word(monkeypatch):
+def test_reset_proceeds_when_the_database_name_is_typed(monkeypatch, knowledge_db, stub_import, capsys):
+    monkeypatch.setattr(cli.sys.stdin, "isatty", lambda: True)
+    monkeypatch.setattr("builtins.input", lambda *_: knowledge_db.name)
+
+    assert cli.main(["--reset"]) == 0
+    assert len(knowledge_db.reset_calls) == 1
+    assert "removed 2 cards" in capsys.readouterr().out
+
+
+def test_typed_confirmation_requires_an_exact_match(monkeypatch):
+    """Exact, not case-folded: the expected value is a database identifier now,
+    and those aren't always lowercase."""
     monkeypatch.setattr(cli.sys.stdin, "isatty", lambda: True)
 
     monkeypatch.setattr("builtins.input", lambda *_: "yes")
-    assert not cli._typed_confirmation("? ", "delete")
+    assert not cli._typed_confirmation("? ", "tome_knowledge")
 
-    monkeypatch.setattr("builtins.input", lambda *_: " DELETE ")
-    assert cli._typed_confirmation("? ", "delete")
+    monkeypatch.setattr("builtins.input", lambda *_: "TOME_KNOWLEDGE")
+    assert not cli._typed_confirmation("? ", "tome_knowledge")
 
-
-def test_picker_returns_when_a_second_format_is_enabled(monkeypatch, two_formats):
-    """The multi-format path is dormant, not gone: enabling a profile brings
-    the prompt back with no other change."""
-    monkeypatch.setattr(cli.sys.stdin, "isatty", lambda: True)
-    monkeypatch.setattr("builtins.input", lambda *_: "standard")
-
-    assert cli._select_format() == "standard"
-
-
-def test_picker_defaults_to_commander_on_empty_input(monkeypatch, two_formats):
-    monkeypatch.setattr("builtins.input", lambda *_: "")
-
-    assert cli._choose_format_interactively() == "commander"
-
-
-def test_picker_accepts_a_format_name_as_well_as_a_number(monkeypatch, two_formats):
-    monkeypatch.setattr("builtins.input", lambda *_: "edh")
-    assert cli._choose_format_interactively() == "edh"
-
-    responses = iter(["2"])
-    monkeypatch.setattr("builtins.input", lambda *_: next(responses))
-    assert cli._choose_format_interactively() == "standard"
-
-
-def test_picker_reprompts_on_nonsense(monkeypatch, two_formats, capsys):
-    responses = iter(["99", "banana", "1"])
-    monkeypatch.setattr("builtins.input", lambda *_: next(responses))
-
-    assert cli._choose_format_interactively() == "commander"
-    assert "between 1 and" in capsys.readouterr().out
+    # Surrounding whitespace is still forgiven — a paste often carries it.
+    monkeypatch.setattr("builtins.input", lambda *_: " tome_knowledge ")
+    assert cli._typed_confirmation("? ", "tome_knowledge")

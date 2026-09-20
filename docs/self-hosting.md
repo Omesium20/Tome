@@ -136,6 +136,10 @@ Tome checks reachability and auth at startup, so a stopped Ollama or a bad key i
 
 All settings live in `backend/.env` and are read through `backend/config.py`. Real environment variables take precedence over the file, which is what makes the Docker overrides work.
 
+The two tables below are two **separate settings classes**, not one list split for readability: `LocalSettings` and `KnowledgeSettings`, siblings over a shared base. A client process cannot read a knowledge-plane setting and vice versa — that is the point of the split. `DATABASE_URL`, the single pre-split setting, is now rejected at startup with a message naming its two replacements, rather than being ignored while a default quietly takes over.
+
+> **Implemented today:** `LOCAL_DATABASE_URL`, `KNOWLEDGE_API_URL`, `MODEL_API_KEY`, `LOG_LEVEL`, and the `KNOWLEDGE_DATABASE_URL` / `SCRYFALL_*` / `IMPORT_BATCH_SIZE` rows. The `MODEL_PROVIDER` / `MODEL_NAME` / `MODEL_BASE_URL` / `MODEL_MAX_TOKENS` / `MODEL_TIMEOUT_SECONDS` and `EMBEDDING_MODEL` rows describe the target shape; they land with the `ModelProvider` interface and the embedding stage.
+
 ### Client settings — what a normal install uses
 
 | Variable | Default | Purpose |
@@ -179,8 +183,8 @@ It means running all four pieces yourself: a Postgres with `pgvector`, the Knowl
 #    Set KNOWLEDGE_DATABASE_URL to it, with a read-write role.
 alembic -n knowledge upgrade head
 
-# 2. Import the card corpus.
-python -m knowledge_pipeline.scryfall_importer --format commander
+# 2. Import the card corpus. No options: it imports every card.
+python -m knowledge_pipeline.scryfall_importer
 
 # 3. The expensive stages — analysis, documents, embeddings.
 python -m knowledge_pipeline.metadata_generator
@@ -193,18 +197,22 @@ python -m knowledge_pipeline.embeddings
 
 Give the Knowledge API a **read-only** database role. It never writes, and a public read service shouldn't be able to damage the corpus.
 
-### Choosing a card pool
+### The card pool: there is no choice to make
 
-By default the importer pulls in **every real card** — about 33,000 objects, roughly 40–60 MB in Postgres — with each card's complete `legalities` map stored alongside it, regardless of which format(s) it's legal in. That's deliberate: Commander-legal cards are 96.5% of the entire pool, so narrowing the *import* saves almost nothing. Format only starts to matter at the AI stages that cost real time and API calls per card.
+The importer takes **every card** — 34,831 of the 38,906 objects in Scryfall's bulk file, roughly 40–60 MB in Postgres. The only thing excluded is objects that aren't cards: tokens, emblems, art series, vanguards, and similar. Legality is never consulted, so the corpus includes cards legal in no format at all.
 
 ```bash
-python -m knowledge_pipeline.scryfall_importer                    # interactive picker (needs a real terminal)
-python -m knowledge_pipeline.scryfall_importer --format commander # or any other registered pool
+python -m knowledge_pipeline.scryfall_importer
 ```
 
-Registered pools come from `backend/knowledge_pipeline/scryfall_importer/formats.py`'s `PROFILES` registry: `all`, `commander`, `vintage`, `legacy`, `oathbreaker`, `modern`, `duel`, `pioneer`, `pauper`, `paupercommander`, `brawl`, `standard`. Naming one that isn't registered exits with code 2 and lists the valid choices. Tokens, emblems, and other non-card objects are excluded from every profile regardless of format.
+That's the whole interface. There is no `--format`, and passing one exits 2 — a hosted corpus is shared, so trimming it to one person's format would only make it useless to the next person. Every row carries its complete `legalities` map, which is what lets the client filter by format without a re-import.
 
-Since Tome's deck builder UI, rules validator, and prompts all assume a 100-card Commander singleton deck, `--format commander` (~31,800 cards) is the sensible pool — but every card keeps its full legality map either way, so switching pools later, or a future format being added to the registry, is never a re-import from scratch.
+Safe unattended: nothing to select means nothing to prompt for, so Docker and cron can't hang on a terminal that isn't there.
+
+Two consequences worth knowing if you run your own:
+
+- **The AI stages, not the import, are where pool size costs money.** Filter there. Excluding the 2,079 cards legal in no format is the obvious first cut; scoping to Commander (31,830) is the next.
+- **Your corpus will contain cards nobody can legally play.** That is deliberate. CSV collection import resolves *owned* card names through the Knowledge API, and 1,945 paper-printed cards — 1,244 of them Un-set cards — are legal nowhere. Dropping them would make each one a permanent placeholder in somebody's collection.
 
 ### Keeping card data current
 
@@ -218,12 +226,12 @@ python -m knowledge_pipeline.scryfall_importer --if-newer
 
 Re-run the AI stages afterward for cards whose oracle text actually changed — `CardMetadata.updated_at` and `CardDocument.updated_at` exist to find metadata older than the card it describes.
 
-### `--prune` and `--reset` are destructive here
+### `--reset` is destructive here, and `--prune` is gone
 
-Both used to be protected by checking for user data in the same database. **Those guards can't work anymore**: collections and decks live on users' machines now, so the importer cannot see what a deletion would orphan.
+`--prune` was protected by checking for user data in the same database. **That guard is gone**, because collections and decks live on users' machines now and the importer can't see what a deletion would orphan — so `--prune` went with it rather than staying on with a check that returned a reassuring zero. It had also lost its purpose: it existed to clean up after a *narrowed* import, and nothing narrows the import any more.
 
-- **Don't `--prune` a shared corpus.** A card banned since the last refresh is still a card somebody owns and wants to see in their collection. The pool is tens of megabytes — there is nothing to reclaim that's worth breaking an install for.
-- **`--reset` will no longer refuse.** On a shared database it is a full corpus wipe affecting every client pointed at it. Gate it with credentials, not with a prompt.
+- **An import cannot delete a row.** It adds and updates. A card Scryfall drops upstream lingers as an unreferenced row costing bytes; deleting it would break whoever owns that card.
+- **`--reset` is the one destructive path, and it asks which database you meant.** It prints the target URL and the card count, then requires that database's name typed back exactly. There is no `--force`, and it always refuses without a terminal. On a shared database a reset is a full corpus wipe affecting every client pointed at it, so gate it with credentials rather than relying on the prompt.
 
 Card data is always re-downloadable, but the AI stages are not cheap to redo — back up the knowledge database before either.
 
@@ -260,8 +268,6 @@ That migrates **your** database only. The knowledge database is migrated by whoe
 ### Running your own knowledge plane
 
 **Importer writes to the wrong database** — check `KNOWLEDGE_DATABASE_URL` (the corpus) versus `LOCAL_DATABASE_URL` (your collection). These are different databases now; the pipeline writes the former.
-
-**`No --format given and no terminal to ask on`** — the importer refuses to hang waiting for input it can't get (Docker `exec`, cron, CI all have no TTY). Pass `--format` explicitly.
 
 **Retrieval returns nonsense** — almost always a mixed-embedding corpus: `EMBEDDING_MODEL` doesn't match what the documents were embedded with. Changing the embedding model requires re-embedding everything, not a partial pass.
 

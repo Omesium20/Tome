@@ -1,9 +1,12 @@
 """Command line entry point: ``python -m knowledge_pipeline.scryfall_importer``.
 
-Only Commander is importable today (see ``formats.py``), so ``--format`` is
-optional and the interactive picker stays out of the way: with one enabled
-profile there is nothing to ask. The picker is still here, and comes back
-automatically as soon as a second profile is enabled.
+Writes to the **knowledge** database (``KNOWLEDGE_DATABASE_URL``), which for
+maintainers is the shared cloud corpus every client reads. Nothing here writes
+to a user's own database, and nothing here can see one.
+
+There is no format selection. The corpus holds every card, and format is a
+filter applied downstream — at the AI stages, or on the client. See
+``card_filter.py``.
 """
 
 import argparse
@@ -13,7 +16,6 @@ import sys
 from logging_config import configure_logging
 
 from . import sink
-from .formats import DEFAULT_PROFILE, FormatError, enabled_profiles, resolve, selectable_names
 from .pipeline import import_cards
 
 logger = logging.getLogger(__name__)
@@ -23,23 +25,18 @@ def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="python -m knowledge_pipeline.scryfall_importer",
         description=(
-            "Import Magic card data from Scryfall's bulk data API. "
-            "Safe to re-run: cards are upserted, never blindly replaced."
+            "Import Magic card data from Scryfall's bulk data API into the "
+            "knowledge database. Safe to re-run: cards are upserted, never "
+            "blindly replaced, and an import never deletes a row."
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
         # RawDescriptionHelpFormatter prints this verbatim; argparse only
         # %-interpolates when the text contains %(prog), so a literal % is fine.
         epilog=(
-            "Tome is a Commander deck builder, so the import is Commander-only: the\n"
-            "database holds the ~31,800 Commander-legal cards and nothing else. Other\n"
-            "formats are scaffolded in formats.py but not selectable yet.\n"
+            "Every card object in the bulk file is imported (~34,800), with its\n"
+            "complete legality map. There is no --format: the corpus is shared and\n"
+            "hosted, so it holds the whole pool and clients filter by format.\n"
         ),
-    )
-    parser.add_argument(
-        "--format",
-        dest="format_name",
-        metavar="{" + ",".join(selectable_names()) + "}",
-        help=f"Card pool to import (default: {DEFAULT_PROFILE}).",
     )
     parser.add_argument(
         "--dry-run",
@@ -50,7 +47,7 @@ def _build_parser() -> argparse.ArgumentParser:
         "--limit",
         type=int,
         metavar="N",
-        help="Stop after N matching cards. For development.",
+        help="Stop after N cards. For development.",
     )
     parser.add_argument(
         "--if-newer",
@@ -62,145 +59,93 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Re-download the bulk file even if a matching cached copy exists.",
     )
-
-    destructive = parser.add_argument_group(
-        "destructive options",
-        "Both leave anything referenced by a collection or deck alone unless forced.",
-    )
-    destructive.add_argument(
-        "--prune",
-        action="store_true",
-        help="After importing, delete cards outside this import that nothing references.",
-    )
-    destructive.add_argument(
+    parser.add_argument(
         "--reset",
         action="store_true",
-        help="Empty the cards table before importing. Refuses if user data exists.",
-    )
-    destructive.add_argument(
-        "--force",
-        action="store_true",
-        help="Allow --reset to proceed even though it will discard collections and decks.",
+        help=(
+            "Empty the cards table before importing. Destructive and "
+            "unguarded — requires the target database's name typed back."
+        ),
     )
     return parser
-
-
-def _select_format() -> str:
-    """Which pool to import when ``--format`` wasn't given.
-
-    With a single enabled profile — today's situation — there is nothing worth
-    asking, so this is silent and the import just runs.
-    """
-    if len(enabled_profiles()) < 2 or not sys.stdin.isatty():
-        return DEFAULT_PROFILE
-    return _choose_format_interactively() or DEFAULT_PROFILE
-
-
-def _choose_format_interactively() -> str | None:
-    """Prompt for a card pool, or return None if there's nobody to ask.
-
-    ``isatty()`` alone isn't a reliable test — some CI runners and container
-    shells report a terminal while stdin is already at EOF — so the read itself
-    has to handle that rather than dying with an EOFError traceback.
-    """
-    profiles = list(enabled_profiles().values())
-
-    print("\nWhich card pool do you want to import?\n")
-    for index, profile in enumerate(profiles, start=1):
-        approx = f"~{profile.approx_cards:,} cards" if profile.approx_cards else ""
-        default_marker = "  (recommended)" if profile.name == DEFAULT_PROFILE else ""
-        print(f"  {index:2}) {profile.label:<22} {approx:>16}{default_marker}")
-
-    default_index = [profile.name for profile in profiles].index(DEFAULT_PROFILE) + 1
-    print()
-
-    while True:
-        try:
-            raw = input(f"Choice [{default_index}]: ").strip()
-        except EOFError:
-            print()
-            return None
-        if not raw:
-            return DEFAULT_PROFILE
-        if raw.isdigit() and 1 <= int(raw) <= len(profiles):
-            return profiles[int(raw) - 1].name
-        if raw.lower() in selectable_names():
-            return raw.lower()
-        print(f"Please enter a number between 1 and {len(profiles)}.")
 
 
 def _typed_confirmation(prompt: str, expected: str) -> bool:
     """Require the user to type ``expected`` exactly.
 
     Refuses when there's no terminal or stdin is at EOF: an unattended process
-    must never be able to fall through a destructive confirmation.
+    must never be able to fall through a destructive confirmation. There is
+    deliberately no flag to skip this. The guard it replaced could be
+    overridden with ``--force``, and what that guard protected is no longer in
+    this database to protect.
+
+    Comparison is exact rather than case-folded — the expected value is a
+    database identifier, and those are not always lowercase.
     """
     if not sys.stdin.isatty():
         return False
     try:
-        return input(prompt).strip().lower() == expected
+        return input(prompt).strip() == expected
     except EOFError:
         print()
         return False
 
 
-def _run_reset(*, force: bool) -> int | None:
-    """Empty the card table. Returns rows removed, or None if it was refused."""
-    from database.session import SessionLocal
+def _run_reset() -> int | None:
+    """Empty the card table. Returns rows removed, or None if it was refused.
 
-    with SessionLocal() as session:
-        counts = sink.user_data_counts(session)
+    The confirmation asks for the *database name* rather than a fixed word,
+    because the hazard changed. It used to be "you are about to delete cards
+    that a collection points at" — data that is no longer here to check for.
+    What replaced it is "you are about to wipe a corpus every client reads,
+    and you may not be pointed where you think you are".
+    """
+    from database.knowledge.session import get_engine, new_session
 
-        if force and any(counts.values()):
-            detail = ", ".join(f"{n} {table}" for table, n in counts.items() if n)
-            print(f"\nThis database holds user data: {detail}.")
-            print("A forced reset deletes all of it. This cannot be undone.")
-            if not _typed_confirmation("Type 'delete' to confirm: ", "delete"):
-                print("Aborted; nothing was deleted.", file=sys.stderr)
-                return None
+    url = get_engine().url
+    # An in-memory sqlite:// URL has no database name to ask for; fall back to
+    # the whole URL so there is always something specific to type.
+    expected = url.database or url.render_as_string(hide_password=True)
 
-        try:
-            return sink.reset(session, force=force)
-        except sink.ResetRefused as error:
-            print(str(error), file=sys.stderr)
+    with new_session() as session:
+        count = sink.card_count(session)
+
+        print(f"\nReset will delete {count:,} cards from:")
+        print(f"  {url.render_as_string(hide_password=True)}")
+        print(
+            "Anything referencing them from a collection or a deck is in a "
+            "different database and cannot be checked from here."
+        )
+        prompt = f"Type the database name ({expected}) to confirm: "
+        if not _typed_confirmation(prompt, expected):
+            print("Aborted; nothing was deleted.", file=sys.stderr)
             return None
+
+        return sink.reset(session)
 
 
 def main(argv: list[str] | None = None) -> int:
     args = _build_parser().parse_args(argv)
     configure_logging()
 
-    try:
-        profile = resolve(args.format_name or _select_format())
-    except FormatError as error:
-        print(str(error), file=sys.stderr)
-        return 2
-
     if args.limit is not None and args.limit < 1:
         print("--limit must be at least 1.", file=sys.stderr)
         return 2
-
-    if args.force and not args.reset:
-        # Silently ignoring it would let someone believe they'd authorized
-        # something destructive that never ran.
-        print("--force only applies to --reset; ignoring it.", file=sys.stderr)
 
     if args.reset:
         if args.dry_run:
             print("--reset and --dry-run are contradictory.", file=sys.stderr)
             return 2
 
-        removed = _run_reset(force=args.force)
+        removed = _run_reset()
         if removed is None:
             return 1
         print(f"Reset: removed {removed:,} cards.")
 
     try:
         report = import_cards(
-            format_name=profile.name,
             dry_run=args.dry_run,
             limit=args.limit,
-            prune=args.prune,
             if_newer=args.if_newer,
             force_download=args.force_download,
         )

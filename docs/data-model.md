@@ -12,8 +12,10 @@ The entities below live in **two different databases with different operators** 
 | Hosted by | Tome maintainers, one shared Postgres + `pgvector` | The user, on their machine (SQLite or Postgres) |
 | Written by | The Knowledge Pipeline only | The user, through the local API |
 | Read by | The Knowledge API (read-only role); clients reach it over HTTPS | The local backend, directly |
-| Models | `backend/database/knowledge_models.py` | `backend/database/local_models.py` |
-| Migrations | `backend/alembic/knowledge/` | `backend/alembic/local/` |
+| Models | `backend/database/knowledge/models.py` | `backend/database/local/models.py` |
+| Sessions | `backend/database/knowledge/session.py` | `backend/database/local/session.py` |
+| Settings | `KnowledgeSettings` / `KNOWLEDGE_DATABASE_URL` | `LocalSettings` / `LOCAL_DATABASE_URL` |
+| Migrations | `alembic -n knowledge` → `backend/alembic/knowledge/` | `alembic -n local` → `backend/alembic/local/` |
 
 **`cards.oracle_id` is the join key across that boundary, and the boundary means no foreign key can enforce it.** `Collection.card_id`, `DeckCard.card_id`, and `Deck.commander_id` are *logical* references to a row in a database the local engine cannot see. Three rules follow, and nothing but code will enforce them:
 
@@ -126,13 +128,12 @@ One execution of the Scryfall importer. Exists so a scheduled refresh can skip a
 |---|---|
 | id | autoincrement |
 | bulk_type | which Scryfall bulk file, e.g. `oracle_cards` |
-| format_profile | the pool this run imported, e.g. `all` or `commander` |
 | source_updated_at | Scryfall's own timestamp for the snapshot consumed |
-| cards_seen / cards_written / cards_skipped / cards_pruned | counts |
+| cards_seen / cards_written / cards_skipped | counts |
 | started_at | |
 | finished_at | nullable — still null while a run is in flight or if it failed |
 
-A `--dry-run` deliberately writes no row, so it can't cause the next real import to be skipped. `source_updated_at` is also what the Knowledge API reports as `scryfall_updated_at` in `/v1/meta`.
+`format_profile` and `cards_pruned` were dropped when format scoping was removed: every run now takes the whole pool, so the first could hold only one value, and the second counted deletions from a `--prune` that no longer exists. An import adds and updates; it never deletes. A `--dry-run` deliberately writes no row, so it can't cause the next real import to be skipped. `source_updated_at` is also what the Knowledge API reports as `scryfall_updated_at` in `/v1/meta`.
 
 ---
 

@@ -58,7 +58,7 @@ Scryfall -> Card Import -> Model Metadata Generation -> Knowledge Document Gener
   -> Embeddings -> Cloud Postgres (pgvector)
 ```
 
-1. **Card Import** — pull card data from the Scryfall Bulk Data API (oracle text, mana cost, color identity, types, legalities). Implemented; **not format-scoped by default** — Commander-legal cards are 96.5% of the entire pool, so filtering at import time saves almost nothing. The full corpus is imported with its complete legality map, and format becomes a filter downstream, at the per-card AI stages where pool size actually costs time and money — see `knowledge-pipeline.md#scryfall-importer`.
+1. **Card Import** — pull card data from the Scryfall Bulk Data API (oracle text, mana cost, color identity, types, legalities). Implemented; **not format-scoped, and not scopable** — one rule decides what lands (is the object a card?), so the corpus holds all 34,831 cards with their complete legality maps. Commander is 91% of that, so filtering at import time saved almost nothing while making every other format a re-import away; and a user's *collection* contains cards legal in no format at all, which still have to resolve. Format is a filter downstream — at the per-card AI stages, or on the client — see `knowledge-pipeline.md#the-import-is-not-format-scoped-and-cannot-be-made-so`.
 2. **Metadata Generation** — a model analyzes each card and generates strategic metadata (roles, themes, game stage, power rating, strengths/weaknesses, synergy tags). See `data-model.md` for the `CardMetadata` shape. Run centrally against a frontier model: this stage sets the ceiling on retrieval quality for every user, so it is not a place to economize.
 3. **Knowledge Document Generation** — a natural-language document is generated per card from its Card + CardMetadata (not hand-written Markdown).
 4. **Embeddings** — a Hugging Face Sentence Transformer embeds each knowledge document.
@@ -224,24 +224,32 @@ project/
     knowledge_pipeline/
       scryfall_importer/           implemented — Scryfall bulk import
         bulk.py                    catalog, download, streamed gzip/JSONL
-        formats.py                 FormatProfile + PROFILES registry
+        card_filter.py             the one import filter: is this a card?
         mapping.py                 Scryfall JSON -> CardRow, face merging
-        sink.py                    batched upsert, prune, reset
+        sink.py                    batched upsert, reset. no delete in an import
         pipeline.py                import_cards() orchestrator
-        __main__.py                CLI + interactive format picker
+        __main__.py                CLI; no format flags
       metadata_generator.py
       document_generator.py
       embeddings.py
 
     -- shared --
-    database/
-      knowledge_models.py          cloud: Card, CardMetadata, CardDocument, ImportRun
-      local_models.py              client: Collection, Deck, DeckCard, CardCache
-      session.py                   separate engines/sessions per plane
+    database/                      split by which database the entities live in
+      knowledge/                   cloud plane
+        models.py                  Card, CardMetadata, ImportRun (CardDocument pending)
+        session.py                 lazy engine <- KNOWLEDGE_DATABASE_URL
+      local/                       client plane
+        models.py                  Collection, Deck, DeckCard (CardCache pending)
+        session.py                 lazy engine <- LOCAL_DATABASE_URL, get_session()
+    alembic.ini                    [local] and [knowledge] sections; no bare [alembic]
     alembic/
-      knowledge/                   migrations for the cloud schema
-      local/                       migrations for the client schema
+      knowledge/                   env.py + versions/ for the cloud schema
+      local/                       env.py + versions/ for the client schema
     tests/                         pytest suite (pythonpath = backend/)
 ```
 
 The two planes share a source tree and a `config.py` but are **separate deployables**: a client install never runs `knowledge_api/` or `knowledge_pipeline/`, and the hosted knowledge service never runs `deck_pipeline/` or `api/`. They also have separate Alembic version directories, because they migrate independently against different databases.
+
+`config.py` is shared but not undivided: `KnowledgeSettings` and `LocalSettings` are siblings over a minimal `BaseAppSettings`, and there is deliberately no combined accessor. A caller names the plane it wants (`get_knowledge_settings()` / `get_local_settings()`) or gets nothing. The one exception is `get_base_settings()`, for code that runs in either deployable and needs neither database — logging setup, essentially.
+
+**The boundary is an import rule, and it is checkable:** nothing under `api/`, `deck_pipeline/` or `ai/` may import `database.knowledge`, and nothing under `knowledge_pipeline/` or `knowledge_api/` may import `database.local`. A grep for either is the cheapest test this architecture has.
