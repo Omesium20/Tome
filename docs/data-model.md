@@ -86,28 +86,53 @@ Deliberately **not** stored, because it lives on the printing rather than the Or
 
 ## CardMetadata
 
-AI-generated strategic information, produced **once, centrally** per card by the Knowledge Pipeline's metadata generation step — one model call per card across the whole corpus. This is the expensive stage that centralizing the knowledge base exists to spare every user from running. Generated against a frontier model: it sets the ceiling on retrieval quality for everyone, so it is not a place to economize (`architecture.md#knowledge-pipeline`).
+AI-generated strategic information, produced **once, centrally** per card by the Knowledge Pipeline's metadata generation step. This is the expensive stage that centralizing the knowledge base exists to spare every user from running.
+
+**Generation is tiered, not single-model.** One model call per card across the whole corpus doesn't imply the *same* model for every card: a local model generates the majority, and only cards a benchmark shows it gets wrong escalate to a frontier model. Whichever tier produces a given row, the shape below is identical — the row doesn't record which model wrote it. Where that tiering line falls is decided by a 300-card benchmark before any full-corpus run (`benchmarking-and-testing.md`).
 
 | Field        | Notes                                                                                                                                                                                       |
 | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | card_id      | FK to Card                                                                                                                                                                                  |
 | summary      |                                                                                                                                                                                             |
-| roles        | e.g. Ramp, Removal, Card Draw                                                                                                                                                               |
-| themes       | e.g. Big Mana, Landfall                                                                                                                                                                     |
-| game_stage   | Early / Mid / Late                                                                                                                                                                          |
-| power_rating |                                                                                                                                                                                             |
+| roles        | closed vocabulary — see *Controlled vocabulary* below. Multi-valued                                                                                                                        |
+| themes       | closed vocabulary, same mechanism as `roles`. Multi-valued                                                                                                                                 |
+| game_stage   | `GameStageProfile` — independent `early`/`mid`/`late` scores, not a single label. See below                                                                                                |
+| power_rating | 1–10, calibrated against the anchor card for the card's dominant role/theme — see *Anchor cards* below                                                                                     |
 | strengths    |                                                                                                                                                                                             |
 | weaknesses   |                                                                                                                                                                                             |
-| synergy_tags |                                                                                                                                                                                             |
+| synergy_tags | closed vocabulary, same mechanism as `roles`                                                                                                                                               |
 | updated_at   | when the metadata generator last wrote this row — lets a refresh detect metadata that predates the `Card.updated_at` it describes (e.g. after an oracle text errata) and needs regenerating |
 
-Example (Cultivate): roles `[Ramp, Mana Fixing]`, themes `[Big Mana, Landfall]`, game_stage `Early`.
+### Controlled vocabulary: roles, themes, synergy_tags
+
+`roles`, `themes`, and `synergy_tags` are each a **closed enum**, not free text. Nothing forces ~31,830 independent model calls to describe the same concept with the same string — "Ramp", "Mana Ramp", and "Mana Acceleration" would otherwise all land as distinct values, which silently breaks retrieval filtering and the deck builder's role-based grouping (`#carddocument`'s `filter_fields`, `#cardcache`'s `roles`). The model is shown the exact closed list it must choose from in the prompt itself; it free-generates `summary`/`strengths`/`weaknesses` but never these three fields.
+
+Example (Cultivate): roles `[Ramp, Mana Fixing]`, themes `[Big Mana, Landfall]`.
+
+### game_stage: GameStageProfile
+
+Not a single Early/Mid/Late label — a card can be strong in more than one phase, and a single label forces a false choice for anything that stays live all game (a mana rock is early *and* mid *and* late). `game_stage` is a fixed-shape object with three independent 1–10 scores:
+
+```python
+class GameStageProfile(BaseModel):
+    early: float  # 1-10
+    mid: float    # 1-10
+    late: float   # 1-10
+```
+
+The three scores are **not** a distribution — they don't sum to anything fixed, and a card can legitimately score high on all three (Sol Ring) or low on all three (a narrow, situational answer). Stored as JSON, validated against this fixed shape rather than an open dict, so generation can't invent extra keys. Example (Cultivate): `{early: 9, mid: 4, late: 1}` — a card that's only good for one thing, and that thing matters most early.
+
+### Anchor cards
+
+`power_rating` and the role/theme assignments are otherwise ungrounded: each generation call is stateless, so nothing keeps two calls using the 1–10 scale the same way or agreeing on the boundary between adjacent roles. **Every enum value in `roles` and `themes` has exactly one designated anchor card** — a hand-picked, hand-labeled example that unambiguously *is* that role or theme, carrying a fixed `power_rating`. Anchors are embedded directly in the generation prompt's cached system block as few-shot calibration examples, so every call — on every model tier — sees the same fixed reference points.
+
+Anchors are drawn from the "easy" bucket of the benchmarking sample (`benchmarking-and-testing.md#the-300-card-sample`): cards whose role, theme, and game stage are obvious enough that hand-labeling them isn't itself a judgment call. Changing an anchor's assigned rating shifts the scale for every card sharing that role or theme, so anchors are a deliberate, reviewed edit, not a casual one.
 
 ## CardDocument
 
 The generated knowledge document for a card and its embedding — the retrieval surface. Produced by the document generation and embedding stages, and the table `POST /v1/retrieve` queries.
 
-This replaces the per-user ChromaDB collection. Document, filter fields, and vector live in the same Postgres as the card they describe, so retrieval is one query with both similarity and hard filters, and a pipeline run writes the relational rows and the vector together (`architecture.md#why-pgvector-and-not-chromadb`).
+Document, filter fields, and vector live in the same Postgres as the card they describe, so retrieval is one query with both similarity and hard filters, and a pipeline run writes the relational rows and the vector together (`architecture.md#why-pgvector-and-not-chromadb`).
 
 | Field | Notes |
 |---|---|
@@ -133,7 +158,7 @@ One execution of the Scryfall importer. Exists so a scheduled refresh can skip a
 | started_at | |
 | finished_at | nullable — still null while a run is in flight or if it failed |
 
-`format_profile` and `cards_pruned` were dropped when format scoping was removed: every run now takes the whole pool, so the first could hold only one value, and the second counted deletions from a `--prune` that no longer exists. An import adds and updates; it never deletes. A `--dry-run` deliberately writes no row, so it can't cause the next real import to be skipped. `source_updated_at` is also what the Knowledge API reports as `scryfall_updated_at` in `/v1/meta`.
+An import adds and updates; it never deletes. A `--dry-run` deliberately writes no row, so it can't cause the next real import to be skipped. `source_updated_at` is also what the Knowledge API reports as `scryfall_updated_at` in `/v1/meta`.
 
 ---
 

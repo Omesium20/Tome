@@ -39,7 +39,7 @@ Tome runs as **two planes with different operators, different lifecycles, and di
 
 ### Why this shape
 
-**One knowledge base, built once.** Metadata generation is one model call per card across ~33,000 cards, and embedding is a full pass over the corpus. Making every user run that was the single largest barrier to using Tome — hours of compute and a real API bill before the first deck. Building it centrally means the expensive work happens once, we fix a bad metadata prompt in one place, and every user gets the same retrieval quality on the same card pool. Card data is public Scryfall data plus our derived analysis, so there is nothing user-specific to isolate — it is the same for everyone by nature.
+**One knowledge base, built once.** Metadata generation is one model call per card across ~33,000 cards, and embedding is a full pass over the corpus. Building it centrally means the expensive work happens once, we fix a bad metadata prompt in one place, and every user gets the same retrieval quality on the same card pool. Card data is public Scryfall data plus our derived analysis, so there is nothing user-specific to isolate — it is the same for everyone by nature. (This wasn't the original design — see `lessons-learned.md#knowledge-base-from-per-user-generation-to-a-hosted-knowledge-plane`.)
 
 **Generation stays on the client.** Deck generation is the part that is per-user, bursty, and expensive in a way that scales with users rather than with the card pool. Keeping it client-side means we host no inference, hold no API keys on behalf of users, and see none of their collections or decks. It is also what makes local models possible at all: a user who wants to run a model on their own GPU and pay nothing can, and a user who wants frontier-model quality points the same interface at Anthropic.
 
@@ -59,18 +59,18 @@ Scryfall -> Card Import -> Model Metadata Generation -> Knowledge Document Gener
 ```
 
 1. **Card Import** — pull card data from the Scryfall Bulk Data API (oracle text, mana cost, color identity, types, legalities). Implemented; **not format-scoped, and not scopable** — one rule decides what lands (is the object a card?), so the corpus holds all 34,831 cards with their complete legality maps. Commander is 91% of that, so filtering at import time saved almost nothing while making every other format a re-import away; and a user's *collection* contains cards legal in no format at all, which still have to resolve. Format is a filter downstream — at the per-card AI stages, or on the client — see `knowledge-pipeline.md#the-import-is-not-format-scoped-and-cannot-be-made-so`.
-2. **Metadata Generation** — a model analyzes each card and generates strategic metadata (roles, themes, game stage, power rating, strengths/weaknesses, synergy tags). See `data-model.md` for the `CardMetadata` shape. Run centrally against a frontier model: this stage sets the ceiling on retrieval quality for every user, so it is not a place to economize.
+2. **Metadata Generation** — a model analyzes each card and generates strategic metadata (roles, themes, game stage, power rating, strengths/weaknesses, synergy tags). See `data-model.md#cardmetadata` for the shape, including the closed role/theme vocabulary and the anchor-card calibration mechanism. **Generation is tiered, not frontier-only**: a local model handles the majority of the corpus, escalating to a frontier model only for cards a benchmark shows it gets wrong. Which tier does the bulk of the work, and what triggers escalation, is decided by the 300-card benchmark in `benchmarking-and-testing.md` before any full-corpus run.
 3. **Knowledge Document Generation** — a natural-language document is generated per card from its Card + CardMetadata (not hand-written Markdown).
 4. **Embeddings** — a Hugging Face Sentence Transformer embeds each knowledge document.
 5. **Persist** — document, structured filter fields, and embedding are written to `card_documents` in the same Postgres as `cards` and `card_metadata`.
 
 ### Why pgvector and not ChromaDB
 
-The vector store used to be a separate ChromaDB instance on each user's disk. Centralizing the knowledge base removed its reason to exist:
-
 - **One system to host instead of two.** Cards, metadata, documents, and vectors live in one managed Postgres. There is no second service to deploy, back up, or keep consistent with the first — and no window where the relational rows and the vector index disagree, because a pipeline run writes both in the same transaction.
 - **Retrieval needs both halves anyway.** Every real query is a vector search *plus* hard filters (color identity is a Commander legality constraint, not a preference; also format legality, mana value, roles). In Postgres that is one query. Split across two stores it is a fetch-then-filter round trip that either over-fetches or drops good candidates.
 - **`pgvector` is the boring choice and it fits.** ~33,000 vectors is small; an HNSW index over that is comfortably sub-millisecond, and every managed Postgres we would consider (Neon, Supabase, RDS) ships the extension.
+
+  This replaced a separate per-user ChromaDB instance — see `lessons-learned.md#vector-storage-chromadb--pgvector` for why.
 
 Column type and index, per the official pgvector SQLAlchemy docs (Context7 `/pgvector/pgvector-python`):
 
@@ -133,7 +133,7 @@ The model **should**: understand strategies, recommend cards, build decks, expla
 
 The model **should not**: search the card database, validate rules, track collections, calculate legality — these are backend responsibilities, enforced in code, not trusted to the model.
 
-This line was always the design, but centralizing knowledge and allowing weaker local models makes it load-bearing rather than merely tidy. Retrieval is a filtered SQL query in the knowledge plane; validation is deterministic Python in the client plane. A local model that hallucinates an illegal card cannot produce an invalid deck — it produces a validation failure and a repair round. **Correctness does not depend on model quality; only deck quality does.**
+Retrieval is a filtered SQL query in the knowledge plane; validation is deterministic Python in the client plane. A local model that hallucinates an illegal card cannot produce an invalid deck — it produces a validation failure and a repair round. **Correctness does not depend on model quality; only deck quality does.**
 
 ---
 

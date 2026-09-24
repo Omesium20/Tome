@@ -46,12 +46,14 @@ Which doc to open for a given topic. `PRD.md`, `docs/architecture.md`, and `docs
 |---|---|
 | [docs/PRD.md](docs/PRD.md) | product scope & MVP boundaries · user flow (import → build-around → config questions → generate) · **deployment model (knowledge vs. client plane)** · both pipelines end-to-end · tech stack rationale · full normalized knowledge model · knowledge documents · knowledge storage structure · model responsibilities · success criteria · future enhancements |
 | [docs/architecture.md](docs/architecture.md) | **the knowledge/client plane split & why** · system diagram · Knowledge Pipeline stages · why pgvector not ChromaDB · Deck Generation Pipeline stages · model vs. backend division of responsibility · the two-database boundary & logical refs · project/module structure |
-| [docs/data-model.md](docs/data-model.md) | which entities live in which database · entity schemas — Card, CardMetadata, CardDocument, ImportRun (cloud) · Collection, Deck, DeckCard, CardCache (local) |
+| [docs/data-model.md](docs/data-model.md) | which entities live in which database · entity schemas — Card, CardMetadata, CardDocument, ImportRun (cloud) · Collection, Deck, DeckCard, CardCache (local) · **CardMetadata's closed role/theme vocabulary, `GameStageProfile`, and anchor-card calibration** |
 | [docs/knowledge-api.md](docs/knowledge-api.md) | the hosted read service — why a service not a connection string · endpoints (`/meta`, `/cards`, `/cards/resolve`, `/retrieve`) · filters as hard constraints · versioning & client compatibility · caching/degradation rules for clients · operating it |
 | [docs/model-providers.md](docs/model-providers.md) | the `ModelProvider` interface · supported backends (Anthropic, OpenAI-compatible, Ollama) · Anthropic API specifics · capability floor & what weak models actually break · the validation repair loop · config vars · testing with a fake provider |
 | [docs/knowledge-pipeline.md](docs/knowledge-pipeline.md) | who runs the pipeline & against which database · Scryfall Importer — module layout & CLI · **why the import takes every card and has no format flags** · what still gets excluded · pool sizes per format · bulk data API · card schema → `Card` field mapping · card faces/DFCs & the merge rule · legalities · upsert semantics · `--reset` and its confirmation · rate limits |
 | [docs/frontend.md](docs/frontend.md) | routing & app shell · mock backend layer & `VITE_USE_MOCKS` switch · working-deck vs. saved-deck handoff · shared collection filter logic/UI · drag-and-drop contract · design tokens · dev gotchas |
 | [docs/self-hosting.md](docs/self-hosting.md) | running the client — Docker vs. local setup · choosing a model (local vs. frontier) · bring-your-own database · full env var reference · running your own knowledge plane & what it costs · choosing a card pool · refreshing card data · upgrading · troubleshooting |
+| [docs/benchmarking-and-testing.md](docs/benchmarking-and-testing.md) | **design only, not yet run** · the 300-card benchmark sample (easy/medium/hard) that gates tiered metadata generation · hand-labeled ground truth & anchor-card sourcing · local (Qwen 7B/14B) vs. frontier model comparison · human-reviewed scoring · the standalone `benchmark_runs` SQLite log (prompt/response/cost/latency/verdict) · what decides the local/frontier escalation rule and production split |
+| [docs/lessons-learned.md](docs/lessons-learned.md) | decisions that were tried, scoped, or built one way and later changed, and why — the two-plane redesign, ChromaDB → pgvector, LangChain removal, format-scoped → whole-pool importer, direct SDK → `ModelProvider`, frontier-only → tiered metadata generation |
 
 ---
 
@@ -68,7 +70,7 @@ Which doc to open for a given topic. `PRD.md`, `docs/architecture.md`, and `docs
 | Embedding model | Hugging Face Sentence Transformer | hosted | Embeds knowledge documents and incoming retrieval queries |
 | Card data source | Scryfall Bulk Data API | hosted | Card info, oracle text, mana cost, color identity, types, legalities |
 
-**ChromaDB is no longer in the stack** — centralizing the knowledge base replaced it with `pgvector` in the same Postgres. **LangChain is no longer in the stack** either: with retrieval behind an HTTP contract and generation behind our own provider interface, it sat between two abstractions we already own. See `docs/architecture.md#why-pgvector-and-not-chromadb` and `docs/model-providers.md`.
+See `docs/architecture.md#why-pgvector-and-not-chromadb` and `docs/model-providers.md` for why `pgvector` and the `ModelProvider` interface were chosen; `docs/lessons-learned.md` covers what they replaced.
 
 ---
 
@@ -127,9 +129,9 @@ python -m knowledge_pipeline.embeddings           # stub
 
 Three things to know before changing the importer:
 
-- **Every card is imported, and there is no format flag.** One rule decides: is the object a card (`card_filter.py`)? Legality is never consulted, so the corpus holds all 34,831 cards including the 2,079 legal in no format at all — a collection is not a legal deck, and CSV import has to resolve cards people actually own. Format scoping existed so a user hosting the corpus themselves could trim it; the corpus is hosted centrally now, so that reason is gone. **Filter by format downstream** — at the AI stages, or on the client.
-- **`Card`'s primary key is `oracle_id`, not Scryfall's `id`.** `id` is a printing UUID that rotates when a card is reprinted. `oracle_id` is now the join key *across the plane boundary* — every local collection and deck row references it logically, with no foreign key able to enforce it — so a rotating key would orphan user data on machines we can't see. Imports remain idempotent upserts.
-- **An import can add and update, never delete.** `--prune` is gone with the format scoping that justified it, and `--force` with the user-data guard it used to override — both guards read `collection`/`decks` from the same database, and those tables are on users' machines now, so `sink.py` neither queries nor imports them. `--reset` is the one destructive path: it prints the target database and card count, then requires that database's name typed back, and always refuses without a terminal. Gate it with credentials rather than the prompt — see `docs/knowledge-pipeline.md#re-running-is-safe`.
+- **Every card is imported, and there is no format flag.** One rule decides: is the object a card (`card_filter.py`)? Legality is never consulted, so the corpus holds all 34,831 cards including the 2,079 legal in no format at all — a collection is not a legal deck, and CSV import has to resolve cards people actually own. **Filter by format downstream** — at the AI stages, or on the client.
+- **`Card`'s primary key is `oracle_id`, not Scryfall's `id`.** `id` is a printing UUID that rotates when a card is reprinted. `oracle_id` is the join key *across the plane boundary* — every local collection and deck row references it logically, with no foreign key able to enforce it — so a rotating key would orphan user data on machines we can't see. Imports remain idempotent upserts.
+- **An import can add and update, never delete.** `sink.py` has no delete path and never queries `collection`/`decks` — those tables live on users' machines, not this one. `--reset` is the one destructive path: it prints the target database and card count, then requires that database's name typed back, and always refuses without a terminal. Gate it with credentials rather than the prompt — see `docs/knowledge-pipeline.md#re-running-is-safe`.
 
 ---
 

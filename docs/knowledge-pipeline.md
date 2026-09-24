@@ -2,7 +2,7 @@
 
 Detailed technical reference for the Knowledge Pipeline introduced in `docs/architecture.md#knowledge-pipeline`. That document is the source of truth for the pipeline's shape and stage order; this file exists to hold the implementation-level detail for each stage as it's built, so `architecture.md` doesn't accumulate detail it wasn't meant to hold.
 
-**This pipeline is operated by maintainers, not by users.** It runs offline against the shared cloud Postgres, and its output is the same for everyone — every client reads the result through the Knowledge API (`knowledge-api.md`) rather than building it locally. That is the point: metadata generation is one model call per card across ~33,000 cards, and asking each user to pay that bill before their first deck was the single largest barrier to using Tome.
+**This pipeline is operated by maintainers, not by users.** It runs offline against the shared cloud Postgres, and its output is the same for everyone — every client reads the result through the Knowledge API (`knowledge-api.md`) rather than building it locally. That is the point: metadata generation is one model call per card across ~33,000 cards, and this way every user's first deck is free of that cost. (See `lessons-learned.md#knowledge-base-from-per-user-generation-to-a-hosted-knowledge-plane` for why this pipeline isn't run per-install.)
 
 Two consequences for anyone working in here:
 
@@ -24,6 +24,8 @@ Scryfall → Card Import → Model Metadata Generation → Knowledge Document Ge
 | Embeddings                    | `knowledge_pipeline/embeddings.py`         | `card_documents.embedding` | stub            |
 
 The output of Card Import is the `Card` entity described in `docs/data-model.md#card` — imported directly from Scryfall, never AI-generated. The remaining stages are undocumented until implemented.
+
+**Metadata Generation is gated on a benchmark, not yet run.** The stage generates `CardMetadata` (`docs/data-model.md#cardmetadata`) using a tiered local-model-first, frontier-escalation strategy rather than one frontier call per card — see `benchmarking-and-testing.md` for the 300-card sample that decides the tiering split and the escalation rule, before `metadata_generator.py` is implemented against the full corpus.
 
 **The vector store is `pgvector` in the same Postgres, not ChromaDB.** Documents, their filter fields, and their embeddings live alongside the cards they describe, so a stage writes relational rows and vectors in one transaction and retrieval is a single query with both similarity and hard filters. Rationale and the column/index declaration: `architecture.md#why-pgvector-and-not-chromadb`; the schema: `data-model.md#carddocument`.
 
@@ -64,19 +66,19 @@ python -m knowledge_pipeline.scryfall_importer --force-download       # ignore t
 python -m knowledge_pipeline.scryfall_importer --reset                # start over (destructive)
 ```
 
-**There are no format flags.** `--format` and `--prune` were removed, not defaulted — passing either exits 2 with "unrecognized arguments", because a flag that silently does nothing is worse than one that errors. The import takes the whole pool every time, so it is safe to run unattended: nothing to select, nothing to prompt for.
+**There are no format flags.** Passing `--format` or `--prune` exits 2 with "unrecognized arguments" rather than silently doing nothing. The import takes the whole pool every time, so it is safe to run unattended: nothing to select, nothing to prompt for.
 
 ### The import is not format-scoped, and cannot be made so
 
-One rule decides what gets imported: **is this object a card?** If so it lands, with its complete `legalities` map, whatever that map says. Legality is never consulted, and there is no flag to change that.
+One rule decides what gets imported: **is this object a card?** If so it lands, with its complete `legalities` map, whatever that map says. Legality is never consulted, and there is no flag to change that. (This wasn't always true — see `lessons-learned.md#scryfall-importer-format-scoped--whole-pool`.)
 
-Format scoping existed for a deployment that no longer exists. When every user hosted the corpus themselves, importing only the cards they needed saved *their* disk and *their* time. The corpus is hosted centrally now, so breadth is paid once, by us — and three arguments then point the same way:
+Breadth is paid once, centrally, by us, and three arguments support keeping the import unscoped:
 
 - **Filtering costs more than it saves.** Commander-legal cards are 91% of the card objects in the file. The expensive stages are `metadata_generator.py` (one model call per card) and `embeddings.py`; that is where a format filter belongs, and applying it there needs no re-import.
 - **A collection is not a legal deck.** CSV import resolves *owned* card names through the Knowledge API. 1,945 paper-printed cards are legal in no format at all, 1,244 of them Un-set cards. Excluding them would turn each into a permanent placeholder in somebody's collection, in an app that is explicitly proxy-friendly.
 - **Format belongs to the client.** Deck building filters on `Card.legalities`, which every row carries whole, so a future Brawl or Oathbreaker mode is a client-side predicate rather than a re-import every user waits on.
 
-One nuance the client-side filter will need, recorded here because the deleted `formats.py` used to own it: a **restricted** card is legal in Vintage, limited to one copy. A naive `legalities[fmt] == "legal"` check wrongly discards Black Lotus.
+One nuance the client-side filter will need: a **restricted** card is legal in Vintage, limited to one copy. A naive `legalities[fmt] == "legal"` check wrongly discards Black Lotus.
 
 ### What still gets excluded
 
@@ -107,9 +109,9 @@ Commander is 91% of what's imported, which is exactly why scoping the *import* t
 ### Re-running is safe
 
 - **Upsert, never replace.** Writes are `INSERT ... ON CONFLICT (oracle_id) DO UPDATE` in batches of `IMPORT_BATCH_SIZE`, so a weekly refresh updates rows in place and cannot disturb a collection or a deck. Duplicate `oracle_id`s within a batch (reversible cards, some promos) are collapsed first, because Postgres rejects an `ON CONFLICT` statement that touches the same key twice.
-- **An import cannot delete a row.** `--prune` is gone. It existed to clean up after a *narrowed* import — drop the cards that fell outside the new format scope — and nothing narrows the import any more. What would have been left is a way to delete rows from a corpus every client reads, guarded only by a `card_metadata` check that couldn't see the collections and decks it was really protecting, since those live on users' machines (`data-model.md#two-databases-one-join-key`). A card Scryfall drops upstream now lingers as an unreferenced row, costing bytes; deleting it would break whoever owns that card, costing an install.
+- **An import cannot delete a row.** There is no `--prune`. A card Scryfall drops upstream lingers as an unreferenced row, costing bytes; deleting it would break whoever owns that card, since collections and decks live on users' machines (`data-model.md#two-databases-one-join-key`) where the importer can't see what a deletion would orphan.
 
-- **`--reset` is the one destructive path, and its confirmation guards the wrong-database case.** It used to refuse while `collection`/`decks` held rows. Those tables are not in this database, so the check couldn't see what it protected and was removed rather than left returning a reassuring zero. What replaced it: `--reset` prints the target URL and the number of cards it would delete, then requires that database's own name typed back. There is no `--force` — the flag existed only to override the user-data refusal, and a guard an unattended process can waive is not a guard. A non-interactive `--reset` always refuses.
+- **`--reset` is the one destructive path, and its confirmation guards the wrong-database case.** It prints the target URL and the number of cards it would delete, then requires that database's own name typed back. There is no `--force`, and a guard an unattended process can waive is not a guard. A non-interactive `--reset` always refuses.
 
   Two things that follow regardless:
 
@@ -214,7 +216,7 @@ As this land enters, you may pay 3 life. If you don't, it enters tapped.
 {T}: Add {W}.
 ```
 
-Labelling matters: an unlabelled concatenation of two rules boxes reads as one card with contradictory text. `mana_cost` and `type_line` use a plain `" // "` join, so the separator itself distinguishes which merge produced which field. **This resolves the open question previously flagged here, and applies to `document_generator.py` as well.**
+Labelling matters: an unlabelled concatenation of two rules boxes reads as one card with contradictory text. `mana_cost` and `type_line` use a plain `" // "` join, so the separator itself distinguishes which merge produced which field. This rule applies to `document_generator.py` as well.
 
 Source: https://scryfall.com/docs/api/layouts, https://scryfall.com/docs/api/cards/search
 

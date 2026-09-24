@@ -3,6 +3,8 @@
 See docs/architecture.md#knowledge-pipeline (step 2) and docs/data-model.md#cardmetadata.
 """
 
+from .metadata_schema import CardMetadataBlueprint
+
 
 def generate_metadata() -> None:
     raise NotImplementedError
