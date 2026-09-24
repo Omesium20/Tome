@@ -154,7 +154,7 @@ The two tables below are two **separate settings classes**, not one list split f
 | `MODEL_TIMEOUT_SECONDS` | `600` | Generous on purpose — local models on CPU are slow |
 | `LOG_LEVEL` | `WARNING` | `DEBUG`, `INFO`, `WARNING`, `ERROR` |
 
-**`MODEL_API_KEY` is only required for hosted providers.** It used to be mandatory, when Anthropic was the only option. A local-model install needs no key at all, and validation is per-provider: startup fails only if the provider you actually selected is missing a credential it needs.
+**`MODEL_API_KEY` is only required for hosted providers.** A local-model install needs no key at all, and validation is per-provider: startup fails only if the provider you actually selected is missing a credential it needs.
 
 ### Knowledge-plane settings — only if you run your own
 
@@ -226,9 +226,9 @@ python -m knowledge_pipeline.scryfall_importer --if-newer
 
 Re-run the AI stages afterward for cards whose oracle text actually changed — `CardMetadata.updated_at` and `CardDocument.updated_at` exist to find metadata older than the card it describes.
 
-### `--reset` is destructive here, and `--prune` is gone
+### `--reset` is the only destructive command
 
-`--prune` was protected by checking for user data in the same database. **That guard is gone**, because collections and decks live on users' machines now and the importer can't see what a deletion would orphan — so `--prune` went with it rather than staying on with a check that returned a reassuring zero. It had also lost its purpose: it existed to clean up after a *narrowed* import, and nothing narrows the import any more.
+There is no `--prune` — collections and decks live on users' machines, so the importer has no way to see what a deletion would orphan.
 
 - **An import cannot delete a row.** It adds and updates. A card Scryfall drops upstream lingers as an unreferenced row costing bytes; deleting it would break whoever owns that card.
 - **`--reset` is the one destructive path, and it asks which database you meant.** It prints the target URL and the card count, then requires that database's name typed back exactly. There is no `--force`, and it always refuses without a terminal. On a shared database a reset is a full corpus wipe affecting every client pointed at it, so gate it with credentials rather than relying on the prompt.

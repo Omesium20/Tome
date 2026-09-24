@@ -196,7 +196,7 @@ Uses a model the user chooses — local or frontier.
 
 Rationale:
 
-- **Build the knowledge base once.** Card analysis is one model call per card across ~33,000 cards. Making every user run that was the largest barrier to first use. Done centrally, the cost is paid once, prompt fixes land in one place, and every user gets identical retrieval quality.
+- **Build the knowledge base once.** Card analysis is one model call per card across ~33,000 cards. Done centrally, the cost is paid once, prompt fixes land in one place, and every user gets identical retrieval quality.
 - **Generate decks on the client.** Generation is per-user and bursty. Client-side means we host no inference, hold no keys on users' behalf, and see no collections. It is also what makes local models possible.
 - **User data never leaves the machine.** The client asks the Knowledge API about *cards*, never about *the user*.
 
@@ -289,7 +289,7 @@ Responsibilities:
 
 Swapping providers is a configuration change, not a code change. Deck *correctness* does not depend on which model is used — validation is deterministic local code — only deck *quality* does.
 
-**LangChain is not used.** With retrieval behind an HTTP contract and generation behind our own provider interface, it sat between two abstractions the project already owns.
+**LangChain is not used.** Retrieval is behind the Knowledge API's HTTP contract; generation is behind the project's own `ModelProvider` interface (`model-providers.md`).
 
 ---
 

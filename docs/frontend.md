@@ -39,7 +39,7 @@ The deck builder edits one **working deck**, persisted via `src/lib/working-deck
 
 ## Shared filter logic and UI (do not re-duplicate)
 
-- **`src/lib/filter-cards.ts`** (`CollectionFilters`, `DEFAULT_FILTERS`, `applyFilters`) is the single source of truth for collection filtering/sorting. It is consumed by both the `/collection` page and the deck builder's `CollectionPanel`. This logic used to be duplicated and was deliberately unified — keep it that way.
+- **`src/lib/filter-cards.ts`** (`CollectionFilters`, `DEFAULT_FILTERS`, `applyFilters`) is the single source of truth for collection filtering/sorting. It is consumed by both the `/collection` page and the deck builder's `CollectionPanel` — keep it that way rather than forking a copy for a new surface.
 - **`src/components/collection/CollectionFilterControls.tsx`** is the one component rendering the search/color/type/sort controls, reused by `CollectionToolbar` (full collection page) and `CollectionPanel` (condensed deck-builder sidebar). If a third surface needs filters, extend this component — don't fork it.
 
 ## Drag-and-drop contract

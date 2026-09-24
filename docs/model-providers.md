@@ -8,7 +8,7 @@ Architectural context: `architecture.md#model-provider-abstraction`. This file h
 
 ## Why an interface rather than an SDK
 
-Before this change the deck pipeline called the Anthropic SDK directly, which was fine when we assumed one hosted deployment and one API key. Once generation moved to the client, the model became the user's choice, and that choice spans a wide range:
+Generation runs on the user's machine against a model the user chooses, and that choice spans a wide range (`lessons-learned.md#model-access-direct-anthropic-sdk--modelprovider-interface` covers what this replaced):
 
 - Someone with a GPU wants to run a local model and pay nothing.
 - Someone with an Anthropic key wants the best decks the app can produce.
@@ -139,7 +139,7 @@ MODEL_BASE_URL=https://your-gateway/v1
 MODEL_API_KEY=...
 ```
 
-**`MODEL_API_KEY` is no longer unconditionally required.** It was, when Anthropic was the only option. A local-model user needs no key at all, so validation is per-provider: the factory raises only if the *selected* provider needs a credential it doesn't have. Startup and the settings UI both call `health()`, so a missing key or an unreachable Ollama is reported immediately with the variable to fix.
+**`MODEL_API_KEY` is not unconditionally required.** A local-model user needs no key at all, so validation is per-provider: the factory raises only if the *selected* provider needs a credential it doesn't have. Startup and the settings UI both call `health()`, so a missing key or an unreachable Ollama is reported immediately with the variable to fix.
 
 ---
 
