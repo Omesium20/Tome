@@ -789,7 +789,7 @@ backend/
     knowledge_pipeline/
 
         scryfall_importer/
-        metadata_generator.py
+        metadata_generator/
         document_generator.py
         embeddings.py
 

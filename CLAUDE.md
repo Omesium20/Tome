@@ -78,7 +78,7 @@ See `docs/architecture.md#why-pgvector-and-not-chromadb` and `docs/model-provide
 
 Both sides are scaffolded. The frontend is a working UI running against a mock backend layer (see `docs/frontend.md`); the backend has real module structure but its route handlers and pipeline steps are still `NotImplementedError` stubs.
 
-> **Status: the data layer is split; the services on top of it are not built yet.** What exists today: the Scryfall importer, the `database/knowledge/` and `database/local/` packages, per-plane settings (`KnowledgeSettings` / `LocalSettings`, no combined accessor), the two Alembic lineages (`-n local` / `-n knowledge`), and `ai/claude_client.py` (a bare Anthropic handle). Every command below is runnable.
+> **Status: the data layer is split; the services on top of it are not built yet.** What exists today: the Scryfall importer, the metadata generator (single-tier — `docs/knowledge-pipeline.md#metadata-generation`), the `database/knowledge/` and `database/local/` packages, per-plane settings (`KnowledgeSettings` / `LocalSettings`, no combined accessor), the two Alembic lineages (`-n local` / `-n knowledge`), and `ai/claude_client.py` (a bare Anthropic handle for the client plane's future `ModelProvider`, unrelated to the metadata generator's own `AnthropicMetadataBackend`). Every command below is runnable.
 >
 > Not yet written: `knowledge_api/`, the `ModelProvider` interface and its providers, the `card_documents` table and `pgvector` setup, `CardCache`, and the collection/deck service layer — so the local database currently has a schema and no readers. Treat a mismatch between these docs and the code as work to do, not as a doc bug.
 
@@ -115,14 +115,15 @@ cd backend/api            && fastapi dev main.py   # client backend on :8000 (ro
 cd backend/knowledge_api  && fastapi dev main.py   # knowledge read service on :8001
 ```
 
-**Knowledge Pipeline (offline, maintainers only)** — from `backend/`, writing to `KNOWLEDGE_DATABASE_URL`. Step 1 is implemented; the rest are still stubs:
+**Knowledge Pipeline (offline, maintainers only)** — from `backend/`, writing to `KNOWLEDGE_DATABASE_URL`. Steps 1–2 are implemented (step 2 single-tier, pending the escalation benchmark — `docs/benchmarking-and-testing.md`); steps 3–4 are still stubs:
 ```
 python -m knowledge_pipeline.scryfall_importer                        # the whole card pool
 python -m knowledge_pipeline.scryfall_importer --if-newer             # weekly refresh
 python -m knowledge_pipeline.scryfall_importer --dry-run --limit 500  # no writes
 python -m knowledge_pipeline.scryfall_importer --reset                # start over (destructive)
 
-python -m knowledge_pipeline.metadata_generator   # stub
+python -m knowledge_pipeline.metadata_generator                       # commander-legal cards needing metadata
+python -m knowledge_pipeline.metadata_generator --dry-run --limit 20  # smoke-test prompts; still calls the API
 python -m knowledge_pipeline.document_generator   # stub
 python -m knowledge_pipeline.embeddings           # stub
 ```

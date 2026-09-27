@@ -138,7 +138,7 @@ All settings live in `backend/.env` and are read through `backend/config.py`. Re
 
 The two tables below are two **separate settings classes**, not one list split for readability: `LocalSettings` and `KnowledgeSettings`, siblings over a shared base. A client process cannot read a knowledge-plane setting and vice versa — that is the point of the split. `DATABASE_URL`, the single pre-split setting, is now rejected at startup with a message naming its two replacements, rather than being ignored while a default quietly takes over.
 
-> **Implemented today:** `LOCAL_DATABASE_URL`, `KNOWLEDGE_API_URL`, `MODEL_API_KEY`, `LOG_LEVEL`, and the `KNOWLEDGE_DATABASE_URL` / `SCRYFALL_*` / `IMPORT_BATCH_SIZE` rows. The `MODEL_PROVIDER` / `MODEL_NAME` / `MODEL_BASE_URL` / `MODEL_MAX_TOKENS` / `MODEL_TIMEOUT_SECONDS` and `EMBEDDING_MODEL` rows describe the target shape; they land with the `ModelProvider` interface and the embedding stage.
+> **Implemented today:** `LOCAL_DATABASE_URL`, `KNOWLEDGE_API_URL`, `MODEL_API_KEY`, `LOG_LEVEL`, and the `KNOWLEDGE_DATABASE_URL` / `SCRYFALL_*` / `IMPORT_BATCH_SIZE` / `METADATA_*` rows. The `MODEL_PROVIDER` / `MODEL_NAME` / `MODEL_BASE_URL` / `MODEL_MAX_TOKENS` / `MODEL_TIMEOUT_SECONDS` and `EMBEDDING_MODEL` rows describe the target shape; they land with the `ModelProvider` interface and the embedding stage.
 
 ### Client settings — what a normal install uses
 
@@ -167,6 +167,10 @@ The two tables below are two **separate settings classes**, not one list split f
 | `SCRYFALL_BULK_TYPE` | `oracle_cards` | Which bulk file to import |
 | `SCRYFALL_CACHE_DIR` | `./data/scryfall` | Where downloaded snapshots are cached |
 | `IMPORT_BATCH_SIZE` | `1000` | Rows per database batch during import |
+| `METADATA_MODEL_API_KEY` | — | Credential for `metadata_generator`. Separate from `MODEL_API_KEY` — this drives a maintainer-run pipeline stage, not a user's deck-generation provider |
+| `METADATA_MODEL_NAME` | `claude-opus-5` | The model that writes `card_metadata`, until the tiering benchmark picks a local/frontier split |
+| `METADATA_MODEL_MAX_TOKENS` | `2048` | Output ceiling per card |
+| `METADATA_BATCH_SIZE` | `50` | Rows per database batch while writing `card_metadata` |
 
 ---
 

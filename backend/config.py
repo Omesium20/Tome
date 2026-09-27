@@ -107,6 +107,21 @@ class KnowledgeSettings(BaseAppSettings):
     # Rows per INSERT ... ON CONFLICT batch during import.
     import_batch_size: int = 1000
 
+    # --- metadata generation ----------------------------------------------
+    # Deliberately its own credential, not `LocalSettings.model_api_key`. That
+    # setting is the *user's* choice of deck-generation provider on the client
+    # plane; this one belongs to a maintainer-run pipeline stage on the
+    # knowledge plane, and the two must never be able to satisfy each other by
+    # accident. See docs/benchmarking-and-testing.md#models-under-test for why
+    # this has no user-facing configuration at all.
+    metadata_model_api_key: str = ""
+    metadata_model_name: str = "claude-opus-5"
+    # Output ceiling per card. CardMetadata is a handful of short fields, not a
+    # 100-card deck list — far below MODEL_MAX_TOKENS's deck-construction default.
+    metadata_model_max_tokens: int = 2048
+    # Rows per INSERT ... ON CONFLICT batch while writing card_metadata.
+    metadata_batch_size: int = 50
+
 
 class LocalSettings(BaseAppSettings):
     """The client plane: what runs on the user's own machine."""

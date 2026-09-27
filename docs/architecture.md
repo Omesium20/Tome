@@ -229,7 +229,14 @@ project/
         sink.py                    batched upsert, reset. no delete in an import
         pipeline.py                import_cards() orchestrator
         __main__.py                CLI; no format flags
-      metadata_generator.py
+      metadata_generator/          implemented, single-tier
+        schema.py                  CardMetadataBlueprint + closed Role/Theme/SynergyTag vocab
+        prompt.py                  cached system block + per-card user message
+        anchors.py                 anchor-card registry (empty until the benchmark)
+        model_backend.py           MetadataModelBackend protocol + AnthropicMetadataBackend
+        sink.py                    batched upsert into card_metadata
+        pipeline.py                generate_metadata() orchestrator
+        __main__.py                CLI
       document_generator.py
       embeddings.py
 

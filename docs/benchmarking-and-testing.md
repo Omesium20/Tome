@@ -1,6 +1,6 @@
 # Benchmarking & Testing: Metadata Generation
 
-**Status: design only. Nothing in this document has been run yet.** It specifies a benchmark that has to happen *before* `metadata_generator.py` runs against the full corpus, not the production run itself. See `knowledge-pipeline.md#metadata-generation` for where that stage sits in the pipeline, and `data-model.md#cardmetadata` for the schema this benchmark evaluates against — the taxonomy, `GameStageProfile`, and anchor-card mechanism referenced throughout this document are defined there.
+**Status: design only. Nothing in this document has been run yet.** It specifies a benchmark that has to happen *before* `metadata_generator` runs against the full corpus, not the production run itself. See `knowledge-pipeline.md#metadata-generation` for where that stage sits in the pipeline, and `data-model.md#cardmetadata` for the schema this benchmark evaluates against — the taxonomy, `GameStageProfile`, and anchor-card mechanism referenced throughout this document are defined there.
 
 ## Why this exists
 
@@ -28,11 +28,11 @@ From the easy bucket, pick one anchor card per `roles` enum value and one per `t
 
 Three tiers, identical prompt (system block: closed taxonomy + anchors + rubric; user message: rendered card facts) and identical output schema:
 
-| Tier | Model | Role in this benchmark |
-|---|---|---|
-| Local, low | `Qwen/Qwen2.5-Coder-7B-Instruct-GGUF` | Cheapest possible per-card cost — tests whether a small local model is viable at all |
-| Local, high | `Qwen/Qwen2.5-Coder-14B-Instruct-GGUF` | The likely production default if it clears the bar — still local, still free per call, more capable |
-| Frontier | Claude (current pinned model — see `model-providers.md` for the client-facing provider interface this is *not* the same as) | The quality ceiling and escalation target; every hard-bucket disagreement is checked against this |
+| Tier        | Model                                                                                                                       | Role in this benchmark                                                                              |
+| ----------- | --------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| Local, low  | `Qwen/Qwen2.5-Coder-7B-Instruct-GGUF`                                                                                       | Cheapest possible per-card cost — tests whether a small local model is viable at all                |
+| Local, high | `Qwen/Qwen2.5-Coder-14B-Instruct-GGUF`                                                                                      | The likely production default if it clears the bar — still local, still free per call, more capable |
+| Frontier    | Claude (current pinned model — see `model-providers.md` for the client-facing provider interface this is *not* the same as) | The quality ceiling and escalation target; every hard-bucket disagreement is checked against this   |
 
 Both Qwen models are **code-tuned**, not general-purpose instruction models — confirm during the benchmark, rather than assume, that they follow the closed-vocabulary/structured-output contract as reliably as a general chat model would. If they don't, that is a benchmark finding to report, not something to quietly work around with extra parsing.
 
@@ -88,7 +88,7 @@ One table, not split into a run log and a separate scores table: a benchmark row
 
 ## Explicitly out of scope here
 
-- Running metadata generation against the full corpus — that's `metadata_generator.py` (`backend/knowledge_pipeline/metadata_generator.py`, currently a stub) once this benchmark has picked a tiering strategy.
+- Running metadata generation against the full corpus — that's `metadata_generator` (`backend/knowledge_pipeline/metadata_generator/`) once this benchmark has picked a tiering strategy.
 - The Batches API / prompt caching mechanics for a production run — those matter once a model tier is chosen; this benchmark is small enough to run as ordinary synchronous calls, not a batch job.
 - Any schema or migration change to either production database (knowledge or local) beyond what `data-model.md#cardmetadata` already documents — `benchmark_runs` above is a standalone benchmark-only store, never migrated alongside either plane.
 

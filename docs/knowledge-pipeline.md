@@ -19,13 +19,42 @@ Scryfall → Card Import → Model Metadata Generation → Knowledge Document Ge
 | Stage                         | Module                                     | Writes                     | Status          |
 | ----------------------------- | ------------------------------------------ | -------------------------- | --------------- |
 | Card Import                   | `knowledge_pipeline/scryfall_importer/`    | `cards`, `import_runs`     | **implemented** |
-| Metadata Generation           | `knowledge_pipeline/metadata_generator.py` | `card_metadata`            | stub            |
+| Metadata Generation           | `knowledge_pipeline/metadata_generator/`   | `card_metadata`            | **implemented, single-tier** |
 | Knowledge Document Generation | `knowledge_pipeline/document_generator.py` | `card_documents.document`  | stub            |
 | Embeddings                    | `knowledge_pipeline/embeddings.py`         | `card_documents.embedding` | stub            |
 
-The output of Card Import is the `Card` entity described in `docs/data-model.md#card` — imported directly from Scryfall, never AI-generated. The remaining stages are undocumented until implemented.
+The output of Card Import is the `Card` entity described in `docs/data-model.md#card` — imported directly from Scryfall, never AI-generated. The remaining stub stages are undocumented until implemented.
 
-**Metadata Generation is gated on a benchmark, not yet run.** The stage generates `CardMetadata` (`docs/data-model.md#cardmetadata`) using a tiered local-model-first, frontier-escalation strategy rather than one frontier call per card — see `benchmarking-and-testing.md` for the 300-card sample that decides the tiering split and the escalation rule, before `metadata_generator.py` is implemented against the full corpus.
+### Metadata Generation
+
+Generates `CardMetadata` (`docs/data-model.md#cardmetadata`) for every `Card` that lacks it, or whose metadata predates the `Card` row it describes (an oracle text errata, say). Run:
+
+```bash
+python -m knowledge_pipeline.metadata_generator                    # every commander-legal card needing it
+python -m knowledge_pipeline.metadata_generator --dry-run --limit 20  # smoke-test prompts; still spends real API calls
+python -m knowledge_pipeline.metadata_generator --format all       # ignore legality entirely
+```
+
+**Single-tier today, not the tiered design end state.** `benchmarking-and-testing.md` specifies a 300-card benchmark that decides *whether* a local model is viable at all and, if so, where the local/frontier escalation line falls — that benchmark hasn't run. Until it does, every card routes through one backend: the frontier Anthropic model, called through `AnthropicMetadataBackend` (`knowledge_pipeline/metadata_generator/model_backend.py`). `MetadataModelBackend` is a small protocol, deliberately **not** the client-facing `ModelProvider` (`model-providers.md`) — see `benchmarking-and-testing.md#models-under-test` for why those are different interfaces — so a local-model tier can be added there later without this module changing.
+
+Module layout (`knowledge_pipeline/metadata_generator/`, mirroring `scryfall_importer/`'s package shape):
+
+| Module | Role |
+|---|---|
+| `__main__.py` | CLI: arg parsing, `python -m knowledge_pipeline.metadata_generator` |
+| `pipeline.py` | orchestration, the needs-metadata query, batched writes |
+| `prompt.py` | builds the cached system block (rubric + closed taxonomy + anchors) and the per-card user message |
+| `anchors.py` | the anchor-card registry (`data-model.md#anchor-cards`) — **empty until the benchmark picks them**; `generate_metadata` logs a warning rather than refusing to run, so the pipeline stays testable before that |
+| `model_backend.py` | `MetadataModelBackend` protocol + `AnthropicMetadataBackend` |
+| `schema.py` | `CardMetadataBlueprint` and the closed `Role`/`Theme`/`SynergyTag` vocabulary — the shape a generation call must produce |
+| `sink.py` | batched `INSERT ... ON CONFLICT DO UPDATE` into `card_metadata`, mirroring `scryfall_importer/sink.py` |
+
+Two decisions worth knowing about:
+
+- **Defaults to `commander`-legal cards, not the whole corpus.** `--format` accepts any Scryfall format name or `all`. Tome is Commander-only (`PRD.md`), so a card legal nowhere Tome plays is, by default, a model call spent on nothing — beyond the 2,079 never-legal-anywhere cards this rules out for free, it also skips everything legal only in some other format. Pass `--format all` to generate over the full imported pool anyway.
+- **Reads and writes use separate query shapes on purpose.** The needs-metadata query pages with discrete `oracle_id > cursor LIMIT n` queries rather than one `yield_per` streaming cursor, because the same session commits a write batch between pages — on Postgres, that commit would close a server-side cursor still in use. See the docstring on `_cards_needing_metadata` for the full reasoning.
+
+Configuration (`docs/self-hosting.md#knowledge-plane-settings`): `METADATA_MODEL_API_KEY` (required — a maintainer credential, deliberately separate from the client's `MODEL_API_KEY`), `METADATA_MODEL_NAME`, `METADATA_MODEL_MAX_TOKENS`, `METADATA_BATCH_SIZE`.
 
 **The vector store is `pgvector` in the same Postgres, not ChromaDB.** Documents, their filter fields, and their embeddings live alongside the cards they describe, so a stage writes relational rows and vectors in one transaction and retrieval is a single query with both similarity and hard filters. Rationale and the column/index declaration: `architecture.md#why-pgvector-and-not-chromadb`; the schema: `data-model.md#carddocument`.
 
@@ -74,7 +103,7 @@ One rule decides what gets imported: **is this object a card?** If so it lands, 
 
 Breadth is paid once, centrally, by us, and three arguments support keeping the import unscoped:
 
-- **Filtering costs more than it saves.** Commander-legal cards are 91% of the card objects in the file. The expensive stages are `metadata_generator.py` (one model call per card) and `embeddings.py`; that is where a format filter belongs, and applying it there needs no re-import.
+- **Filtering costs more than it saves.** Commander-legal cards are 91% of the card objects in the file. The expensive stages are `metadata_generator/` (one model call per card) and `embeddings.py`; that is where a format filter belongs, and applying it there needs no re-import.
 - **A collection is not a legal deck.** CSV import resolves *owned* card names through the Knowledge API. 1,945 paper-printed cards are legal in no format at all, 1,244 of them Un-set cards. Excluding them would turn each into a permanent placeholder in somebody's collection, in an app that is explicitly proxy-friendly.
 - **Format belongs to the client.** Deck building filters on `Card.legalities`, which every row carries whole, so a future Brawl or Oathbreaker mode is a client-side predicate rather than a re-import every user waits on.
 
@@ -104,7 +133,7 @@ The corpus holds all of it. The counts below come from the imported 2026-09-20 s
 | `legal:standard` | 4,887 |
 | legal in no format at all | 2,079 |
 
-Commander is 91% of what's imported, which is exactly why scoping the *import* to it wasn't worth the cost. Where pool size does bite is `metadata_generator.py` (one model call per card) and `embeddings.py`, both proportional to whatever pool is selected *at that stage* — and those 2,079 never-legal cards are the obvious first thing to exclude there.
+Commander is 91% of what's imported, which is exactly why scoping the *import* to it wasn't worth the cost. Where pool size does bite is `metadata_generator/` (one model call per card) and `embeddings.py`, both proportional to whatever pool is selected *at that stage* — and those 2,079 never-legal cards are the obvious first thing to exclude there.
 
 ### Re-running is safe
 
