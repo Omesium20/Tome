@@ -1,0 +1,1324 @@
+<title>Anchor Bench</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Spectral:ital,wght@0,400;0,500;1,400&display=swap">
+
+<style>
+/* ---------------------------------------------------------------------------
+   Dark-first: the bare :root carries the complete dark palette, because Tome's
+   own design system is dark-only. Light is the override, declared twice so both
+   an OS preference and an explicit host stamp resolve.
+   --------------------------------------------------------------------------- */
+:root {
+  --ground:      #131417;
+  --surface:     #1A1C21;
+  --raised:      #23262C;
+  --line:        #32363E;
+  --line-soft:   #26292F;
+
+  --ink:         #E9E5DD;
+  --ink-dim:     #9A9EA6;
+  --ink-faint:   #6C717A;
+
+  --brass:       #C9A227;
+  --ok:          #5FA777;
+  --ok-soft:     #1E3427;
+  --flag:        #C97066;
+  --flag-soft:   #3A211F;
+
+  --role:        #C9A227;
+  --theme:       #7FA6C9;
+
+  /* The five bands, low to high: a cool-to-warm ramp, so a rung's band is
+     legible from its colour alone when scanning 265 of them. */
+  --b1:  #5E7C8A;
+  --b2:  #6E8E7C;
+  --b3:  #9A9A62;
+  --b4:  #C08D50;
+  --b5:  #C4685E;
+
+  --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.28);
+
+  --f-ui:   "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --f-read: "Spectral", Georgia, "Times New Roman", serif;
+  --f-data: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --ground:    #F1EFEA;
+    --surface:   #FBFAF7;
+    --raised:    #FFFFFF;
+    --line:      #D9D4C9;
+    --line-soft: #E7E3DA;
+
+    --ink:       #1B1C1F;
+    --ink-dim:   #5D6068;
+    --ink-faint: #8A8E96;
+
+    --brass:     #8A6B0F;
+    --ok:        #2F7148;
+    --ok-soft:   #DCEDE2;
+    --flag:      #A8453A;
+    --flag-soft: #F6DFDC;
+
+    --role:      #8A6B0F;
+    --theme:     #3D6588;
+
+    --b1: #47616D;
+    --b2: #4A6B57;
+    --b3: #6E6C36;
+    --b4: #8C5F2A;
+    --b5: #9E463C;
+
+    --shadow: 0 1px 2px rgba(60,50,30,.10), 0 8px 22px rgba(60,50,30,.07);
+  }
+}
+
+:root[data-theme="light"] {
+  --ground:    #F1EFEA;
+  --surface:   #FBFAF7;
+  --raised:    #FFFFFF;
+  --line:      #D9D4C9;
+  --line-soft: #E7E3DA;
+
+  --ink:       #1B1C1F;
+  --ink-dim:   #5D6068;
+  --ink-faint: #8A8E96;
+
+  --brass:     #8A6B0F;
+  --ok:        #2F7148;
+  --ok-soft:   #DCEDE2;
+  --flag:      #A8453A;
+  --flag-soft: #F6DFDC;
+
+  --role:      #8A6B0F;
+  --theme:     #3D6588;
+
+  --b1: #47616D;
+  --b2: #4A6B57;
+  --b3: #6E6C36;
+  --b4: #8C5F2A;
+  --b5: #9E463C;
+
+  --shadow: 0 1px 2px rgba(60,50,30,.10), 0 8px 22px rgba(60,50,30,.07);
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--ground);
+  color: var(--ink);
+  font-family: var(--f-ui);
+  font-size: 15px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+:focus-visible { outline: 2px solid var(--brass); outline-offset: 2px; border-radius: 2px; }
+button { font: inherit; color: inherit; cursor: pointer; }
+code { font-family: var(--f-data); font-size: .92em; }
+
+/* --------------------------------------------------------------- masthead -- */
+
+.masthead {
+  position: sticky; top: 0; z-index: 20;
+  display: flex; align-items: center; gap: 22px; flex-wrap: wrap;
+  padding: 12px 22px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+}
+
+.brand { display: flex; align-items: baseline; gap: 12px; }
+.brand h1 { margin: 0; font-size: 17px; font-weight: 700; letter-spacing: -0.01em; }
+.brand .sub {
+  font-size: 11.5px; color: var(--ink-faint);
+  letter-spacing: 0.06em; text-transform: uppercase;
+}
+
+.views { display: flex; gap: 2px; }
+.views button {
+  padding: 6px 13px; background: transparent;
+  border: 1px solid transparent; border-radius: 4px;
+  font-size: 13px; font-weight: 500; color: var(--ink-dim);
+}
+.views button:hover { color: var(--ink); background: var(--raised); }
+.views button[aria-selected="true"] {
+  color: var(--ink); background: var(--raised); border-color: var(--line);
+}
+
+.views .badge {
+  display: inline-block; margin-left: 6px; padding: 0 5px;
+  border-radius: 8px; background: var(--flag); color: #fff;
+  font-family: var(--f-data); font-size: 10px; font-weight: 600;
+}
+
+.progress { display: flex; align-items: center; gap: 10px; margin-left: auto; }
+.progress-track {
+  width: 140px; height: 5px; background: var(--line-soft);
+  border: 1px solid var(--line); border-radius: 3px; overflow: hidden;
+}
+.progress-fill { height: 100%; width: 0; background: var(--brass); transition: width .25s ease; }
+.progress-text {
+  font-family: var(--f-data); font-size: 12px;
+  font-variant-numeric: tabular-nums; color: var(--ink-dim);
+}
+
+/* ------------------------------------------------------------------ shell -- */
+
+.shell { display: grid; grid-template-columns: 250px minmax(0, 1fr); align-items: start; }
+
+.rail {
+  position: sticky; top: 54px;
+  max-height: calc(100vh - 54px); overflow-y: auto;
+  padding: 10px 0 40px;
+  border-right: 1px solid var(--line); background: var(--surface);
+}
+
+.rail-group {
+  display: flex; justify-content: space-between;
+  padding: 14px 18px 6px;
+  font-size: 10.5px; font-weight: 600; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--ink-faint);
+}
+
+.rail-item {
+  display: flex; align-items: center; gap: 9px; width: 100%;
+  padding: 6px 18px; background: transparent; border: 0;
+  border-left: 2px solid transparent;
+  text-align: left; font-size: 13.5px; color: var(--ink-dim);
+}
+.rail-item:hover { background: var(--raised); color: var(--ink); }
+.rail-item[aria-current="true"] {
+  background: var(--raised); border-left-color: var(--brass);
+  color: var(--ink); font-weight: 500;
+}
+.dot { flex: none; width: 7px; height: 7px; border-radius: 50%; border: 1px solid var(--ink-faint); }
+.rail-item[data-done="true"] .dot { background: var(--ok); border-color: var(--ok); }
+.rail-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rail-warn { flex: none; color: var(--flag); font-size: 11px; font-weight: 700; }
+
+.main { padding: 24px 28px 90px; max-width: 1220px; }
+.view[hidden] { display: none; }
+
+/* --------------------------------------------------------------- tag head -- */
+
+.taghead { margin-bottom: 18px; }
+
+.eyebrow {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  font-family: var(--f-data); font-size: 11px;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--ink-faint); margin-bottom: 6px;
+}
+.kind { padding: 2px 7px; border-radius: 3px; font-weight: 600; border: 1px solid currentColor; }
+.kind.role { color: var(--role); }
+.kind.theme { color: var(--theme); }
+
+.taghead h2 {
+  margin: 0 0 10px; font-size: 30px; font-weight: 700;
+  letter-spacing: -0.02em; text-wrap: balance;
+}
+
+.meta {
+  font-family: var(--f-data); font-size: 11.5px; line-height: 1.6;
+  color: var(--ink-faint); background: var(--surface);
+  border: 1px solid var(--line-soft); border-left: 2px solid var(--line);
+  border-radius: 0 4px 4px 0; padding: 8px 12px;
+  overflow-x: auto; white-space: pre-wrap; word-break: break-word;
+}
+.meta + .meta { margin-top: 6px; }
+
+.warn {
+  margin-top: 12px; padding: 10px 14px;
+  background: var(--flag-soft); border-left: 2px solid var(--flag);
+  border-radius: 0 4px 4px 0; font-size: 13.5px; line-height: 1.55;
+}
+.warn strong { color: var(--flag); }
+
+/* ----------------------------------------------------------------- ladder -- */
+
+/* Rungs run strongest-first: power reads as a vertical axis, so 9-10 sits at
+   the top. The band rail on the left is what makes the progression scannable
+   without reading every card. */
+.ladder { display: flex; flex-direction: column; gap: 10px; }
+
+.rung {
+  display: grid;
+  grid-template-columns: 74px minmax(0, 1fr);
+  gap: 16px;
+  padding: 14px 16px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  box-shadow: var(--shadow);
+}
+
+.bandcol { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
+
+.bandchip {
+  font-family: var(--f-data); font-size: 12px; font-weight: 600;
+  letter-spacing: 0.04em; padding: 3px 8px;
+  border-radius: 3px; color: #fff; white-space: nowrap;
+}
+.rung[data-band="1-2"]  .bandchip { background: var(--b1); }
+.rung[data-band="3-4"]  .bandchip { background: var(--b2); }
+.rung[data-band="5-6"]  .bandchip { background: var(--b3); }
+.rung[data-band="7-8"]  .bandchip { background: var(--b4); }
+.rung[data-band="9-10"] .bandchip { background: var(--b5); }
+
+.rating-wrap { display: flex; flex-direction: column; gap: 3px; }
+.rating-wrap span {
+  font-family: var(--f-data); font-size: 9.5px;
+  letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-faint);
+}
+.rating-wrap input {
+  width: 62px; padding: 5px 6px;
+  background: var(--ground); color: var(--ink);
+  border: 1px solid var(--line); border-radius: 3px;
+  font-family: var(--f-data); font-size: 14px;
+  font-variant-numeric: tabular-nums; text-align: center;
+}
+.rating-wrap input[data-edited="true"] { border-color: var(--brass); color: var(--brass); }
+
+.rung-body { display: flex; flex-direction: column; gap: 9px; min-width: 0; }
+
+.rung-top { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.rung-top h3 { margin: 0; font-size: 17px; font-weight: 600; letter-spacing: -0.01em; }
+.cost { font-family: var(--f-data); font-size: 12px; color: var(--ink-dim); }
+.typeline {
+  font-family: var(--f-read); font-style: italic;
+  font-size: 13px; color: var(--ink-dim);
+}
+
+/* The candidate rail. Choosing is the whole task now, so the alternatives sit
+   in the rung permanently rather than behind a swap button. */
+.cands { display: flex; flex-wrap: wrap; gap: 6px; }
+.cand {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 5px 10px 5px 8px; max-width: 100%;
+  background: transparent; border: 1px solid var(--line);
+  border-radius: 999px; font-size: 12px; color: var(--ink-dim);
+  text-align: left; line-height: 1.3;
+}
+.cand:hover { color: var(--ink); border-color: var(--ink-faint); }
+.cand[data-on="true"] {
+  background: var(--raised); border-color: var(--ink-faint);
+  color: var(--ink); font-weight: 600;
+}
+.cand .cname { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cand .cnum {
+  font-family: var(--f-data); font-size: 10px; color: var(--ink-faint);
+  border: 1px solid var(--line); border-radius: 3px;
+  padding: 0 3px; flex: none;
+}
+.cand[data-on="true"] .cnum { color: var(--ink-dim); border-color: var(--ink-faint); }
+.cand .crate {
+  font-family: var(--f-data); font-size: 11px; font-weight: 600;
+  color: var(--brass); flex: none;
+}
+/* Where the candidate came from: P = the first pass's primary, A = its
+   alternate, N = this pass's wider search. Deliberately a neutral letter and
+   not a colored dot -- semantic hues (a green for "new", say) would read as a
+   quality signal, and provenance is explicitly NOT one. The ranking ignores
+   it; this is here so a reviewer can see the pool's composition, nothing more. */
+.cand .csrc {
+  font-family: var(--f-data); font-size: 9px; font-weight: 600;
+  color: var(--ink-faint); border: 1px solid var(--line);
+  border-radius: 2px; padding: 0 2px; flex: none; line-height: 1.5;
+}
+.cand[data-on="true"] .csrc { color: var(--ink-dim); border-color: var(--ink-faint); }
+.cand .cstar { color: var(--brass); font-size: 11px; flex: none; }
+
+.variety {
+  font-size: 12px; line-height: 1.5; color: var(--ink-faint);
+  font-style: italic;
+}
+
+.compare {
+  background: transparent; border: none; padding: 0;
+  font-family: var(--f-data); font-size: 11px; color: var(--ink-faint);
+  text-decoration: underline; text-underline-offset: 3px;
+  align-self: flex-start;
+}
+.compare:hover { color: var(--ink-dim); }
+.cmp-grid {
+  display: grid; gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+}
+.cmp {
+  border: 1px solid var(--line-soft); border-radius: 5px;
+  padding: 9px 10px; background: var(--ground);
+  display: flex; flex-direction: column; gap: 6px; min-width: 0;
+}
+.cmp[data-on="true"] { border-color: var(--ink-faint); background: var(--raised); }
+.cmp .cmp-name { font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 6px; }
+.cmp .cmp-rank {
+  font-family: var(--f-data); font-size: 10px; font-weight: 600;
+  color: var(--ink-faint); border: 1px solid var(--line);
+  border-radius: 3px; padding: 0 4px; flex: none;
+}
+.cmp[data-on="true"] .cmp-rank { color: var(--ink-dim); border-color: var(--ink-faint); }
+.cmp .cmp-meta { font-family: var(--f-data); font-size: 10.5px; color: var(--ink-faint); }
+.cmp .cmp-oracle {
+  font-family: var(--f-read); font-size: 12px; line-height: 1.5;
+  white-space: pre-wrap; color: var(--ink-dim);
+  max-height: 96px; overflow-y: auto;
+}
+.cmp .cmp-why { font-size: 11.5px; line-height: 1.5; color: var(--ink-faint); }
+.cmp .cmp-use {
+  background: transparent; border: 1px solid var(--line);
+  border-radius: 4px; font-size: 11px; color: var(--ink-dim);
+  padding: 3px 8px; align-self: flex-start;
+}
+.cmp .cmp-use:hover { color: var(--ink); border-color: var(--ink-faint); }
+
+.oracle {
+  font-family: var(--f-read); font-size: 13.5px; line-height: 1.6;
+  white-space: pre-wrap;
+  background: var(--ground); border: 1px solid var(--line-soft);
+  border-radius: 4px; padding: 10px 12px;
+  max-height: 150px; overflow-y: auto;
+}
+.oracle:empty::after { content: "No rules text."; color: var(--ink-faint); font-style: italic; }
+
+.reason { font-size: 13px; line-height: 1.55; color: var(--ink-dim); }
+.reason b { color: var(--ink); font-weight: 500; }
+
+.dupe {
+  font-family: var(--f-data); font-size: 11px;
+  color: var(--flag); display: flex; align-items: center; gap: 6px;
+}
+
+/* -------------------------------------------------------------------- nav -- */
+
+.navrow {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--line-soft);
+}
+.ghost {
+  padding: 7px 14px; background: transparent;
+  border: 1px solid var(--line); border-radius: 4px;
+  font-size: 13px; color: var(--ink-dim);
+}
+.ghost:hover { color: var(--ink); border-color: var(--ink-faint); }
+.ghost[data-on="true"] {
+  background: var(--ok-soft); border-color: var(--ok);
+  color: var(--ok); font-weight: 600;
+}
+.keyhint { margin-left: auto; font-family: var(--f-data); font-size: 11px; color: var(--ink-faint); }
+kbd {
+  font-family: var(--f-data); font-size: 10.5px; padding: 1px 5px;
+  border: 1px solid var(--line); border-bottom-width: 2px;
+  border-radius: 3px; background: var(--surface);
+}
+
+/* ---------------------------------------------------------- shared blocks -- */
+
+h2.section { margin: 0 0 6px; font-size: 22px; font-weight: 700; letter-spacing: -0.015em; }
+h3.sub { margin: 26px 0 10px; font-size: 15px; font-weight: 600; }
+
+.lede { max-width: 64ch; font-size: 14.5px; line-height: 1.62; color: var(--ink-dim); margin: 0 0 20px; }
+.lede b { color: var(--ink); font-weight: 500; }
+
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(146px, 1fr)); gap: 12px; margin: 20px 0; }
+.stat { padding: 13px 15px; background: var(--surface); border: 1px solid var(--line); border-radius: 5px; }
+.stat .k {
+  font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--ink-faint); margin-bottom: 5px;
+}
+.stat .v {
+  font-family: var(--f-data); font-size: 22px; font-weight: 500;
+  font-variant-numeric: tabular-nums; letter-spacing: -0.02em;
+}
+.stat .n { font-size: 12px; color: var(--ink-dim); margin-top: 3px; line-height: 1.4; }
+
+.empty {
+  padding: 38px 24px; text-align: center; color: var(--ink-faint);
+  font-size: 14px; background: var(--surface);
+  border: 1px dashed var(--line); border-radius: 6px;
+}
+
+.finding {
+  padding: 13px 16px; background: var(--surface);
+  border: 1px solid var(--line); border-left: 2px solid var(--brass);
+  border-radius: 0 5px 5px 0; font-size: 13.5px; line-height: 1.6;
+  color: var(--ink-dim); margin-bottom: 10px;
+}
+.finding b { color: var(--ink); font-weight: 600; }
+
+/* ---------------------------------------------------------------- by band -- */
+
+.bandsec { margin-bottom: 30px; }
+
+.bandsec h3 {
+  display: flex; align-items: center; gap: 10px;
+  margin: 0 0 4px; font-size: 16px; font-weight: 600;
+}
+
+.bandsec .rubric { font-size: 13px; color: var(--ink-dim); margin: 0 0 12px; max-width: 70ch; }
+
+.bandgrid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(232px, 1fr)); gap: 8px;
+}
+
+.bandcard {
+  display: flex; align-items: baseline; gap: 8px;
+  padding: 8px 11px; background: var(--surface);
+  border: 1px solid var(--line-soft); border-radius: 4px;
+  font-size: 13px; cursor: pointer; text-align: left; width: 100%;
+}
+.bandcard:hover { border-color: var(--ink-faint); background: var(--raised); }
+.bandcard .tg {
+  font-family: var(--f-data); font-size: 10px; letter-spacing: 0.05em;
+  text-transform: uppercase; color: var(--ink-faint);
+  flex: none; width: 82px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.bandcard .nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bandcard .rt {
+  font-family: var(--f-data); font-size: 11.5px;
+  font-variant-numeric: tabular-nums; color: var(--ink-dim); flex: none;
+}
+
+/* -------------------------------------------------------------- conflicts -- */
+
+.conflict {
+  padding: 13px 16px; margin-bottom: 10px;
+  background: var(--surface); border: 1px solid var(--line);
+  border-left: 2px solid var(--flag); border-radius: 0 5px 5px 0;
+}
+.conflict.benign { border-left-color: var(--line); }
+.conflict h4 { margin: 0 0 6px; font-size: 15px; font-weight: 600; }
+.conflict ul { margin: 0; padding-left: 18px; font-size: 13px; color: var(--ink-dim); line-height: 1.6; }
+.conflict .verdict {
+  font-family: var(--f-data); font-size: 11px; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--flag); margin-top: 7px;
+}
+.conflict.benign .verdict { color: var(--ink-faint); }
+
+/* ----------------------------------------------------------------- export -- */
+
+.exportbar { display: flex; align-items: center; gap: 10px; margin: 16px 0 12px; flex-wrap: wrap; }
+.solid {
+  padding: 8px 16px; background: var(--brass);
+  border: 1px solid var(--brass); border-radius: 4px;
+  font-size: 13px; font-weight: 600; color: var(--ground);
+}
+.solid:hover { filter: brightness(1.08); }
+
+pre.code {
+  margin: 0; padding: 16px 18px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 6px;
+  font-family: var(--f-data); font-size: 12.5px; line-height: 1.6;
+  overflow-x: auto; white-space: pre; color: var(--ink);
+  max-height: 62vh; overflow-y: auto;
+}
+
+@media (max-width: 900px) {
+  .shell { grid-template-columns: 1fr; }
+  .rail { position: static; max-height: 280px; border-right: 0; border-bottom: 1px solid var(--line); }
+  .main { padding: 18px 14px 60px; }
+  .rung { grid-template-columns: 1fr; gap: 10px; }
+  .bandcol { flex-direction: row; align-items: center; gap: 14px; }
+}
+
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+
+<header class="masthead">
+  <div class="brand">
+    <h1>Anchor Bench</h1>
+    <span class="sub">Tome &middot; calibration ladders</span>
+  </div>
+
+  <nav class="views" role="tablist" aria-label="Views">
+    <button type="button" role="tab" id="tab-ladder" aria-selected="true">Ladders</button>
+    <button type="button" role="tab" id="tab-band" aria-selected="false">By band</button>
+    <button type="button" role="tab" id="tab-conflict" aria-selected="false">Conflicts</button>
+    <button type="button" role="tab" id="tab-export" aria-selected="false">Export</button>
+  </nav>
+
+  <div class="progress">
+    <div class="progress-track"><div class="progress-fill" id="bar"></div></div>
+    <span class="progress-text" id="count"></span>
+  </div>
+</header>
+
+<div class="shell">
+  <aside class="rail" id="rail" aria-label="Tags"></aside>
+
+  <main class="main">
+    <section class="view" id="view-ladder" role="tabpanel" aria-labelledby="tab-ladder"></section>
+
+    <section class="view" id="view-band" role="tabpanel" aria-labelledby="tab-band" hidden>
+      <h2 class="section">Every rung, grouped by band</h2>
+      <p class="lede">
+        The ladder view checks one tag down its own scale. <b>This view checks the scale across
+        tags</b> &mdash; the thing two independent passes cannot get right on their own. Read a band
+        straight through and ask whether every card in it really belongs at that level. A 9&ndash;10
+        column with a merely-good card in it, or a 1&ndash;2 column holding something playable, is a
+        rung that will drag every card scored against it.
+      </p>
+      <p class="lede">
+        This view follows your choices, not the candidate pool &mdash; it shows the card each rung
+        is currently set to, so it reflects the ladder you are actually building.
+      </p>
+      <p class="lede">
+        A tag missing from this bench has no ladder on purpose. The vocabulary in
+        <code>schema.py</code> is closed, and a member that cannot be graded from the card in front
+        of the model &mdash; or that has no honest card at every band &mdash; is dropped rather than
+        anchored. Notes at the foot of a ladder record any such call made while this pool was built.
+      </p>
+      <div id="band-body"></div>
+    </section>
+
+    <section class="view" id="view-conflict" role="tabpanel" aria-labelledby="tab-conflict" hidden>
+      <h2 class="section">Cards appearing in more than one ladder</h2>
+      <p class="lede">
+        Every ladder renders into <b>one shared, cached system prompt</b>, so a card that appears
+        twice at two different ratings teaches the model the inconsistency the anchors exist to
+        prevent. Same rating in two ladders is fine &mdash; it reinforces. Different ratings is a
+        defect, and a difference that crosses a band boundary cannot be fixed by renumbering: the
+        card has to be replaced in one of the two ladders.
+      </p>
+      <p class="lede">
+        Only <b>chosen</b> cards are checked here, not the whole candidate pool. Two candidates in
+        different ladders may disagree harmlessly; it becomes a defect the moment you select both.
+      </p>
+      <div id="conflict-body"></div>
+    </section>
+
+    <section class="view" id="view-export" role="tabpanel" aria-labelledby="tab-export" hidden>
+      <h2 class="section">Your selection</h2>
+      <p class="lede">
+        Copy this into a file &mdash; say <code>selection.json</code> &mdash; and render the registry
+        from it:
+      </p>
+      <p class="lede">
+        <code>python -m knowledge_pipeline.anchor_bench export ranked.json --selection
+        selection.json -o ladders.py</code>
+      </p>
+      <p class="lede">
+        Only ladders you have marked reviewed appear &mdash; an unreviewed tag is left out rather
+        than guessed, which is the distinction <code>anchors.py</code> exists to protect. The
+        selection names the card each rung settled on rather than its position in the list, so it
+        stays meaningful if the pool is re-ranked.
+      </p>
+      <div class="exportbar">
+        <button type="button" class="solid" id="copy">Copy to clipboard</button>
+        <span class="progress-text" id="copy-note"></span>
+      </div>
+      <pre class="code" id="code"></pre>
+    </section>
+  </main>
+</div>
+
+<script>
+/* Injected by anchor_bench/page.py from the ranked candidate pool. */
+window.ANCHOR_DATA = __ANCHOR_DATA__;
+</script>
+<script>
+(function () {
+  "use strict";
+
+  var RAW = window.ANCHOR_DATA || { ladders: [], notes: [], band_rubric: {}, corpus: {} };
+  var LADDERS = RAW.ladders || [];
+  var RUBRIC = RAW.band_rubric || {};
+  var BANDS = ["1-2", "3-4", "5-6", "7-8", "9-10"];
+  var STORE_KEY = "tome.anchor.ladders.v3";
+  var STORE_KEY_V2 = "tome.anchor.ladders.v2";
+
+  /* state[tag] = { reviewed: bool, pick: { "<band>": index }, rating: { "<band>": n } }
+
+     `pick` replaced v2's boolean `swap`, because a rung now holds a list of
+     candidates rather than a primary and one alternate. v2 state is migrated
+     on load rather than discarded -- swap:true was "use the alternate", which
+     is candidate index 1. */
+  var state = {};
+  var current = 0;
+
+  function load() {
+    try {
+      var raw = window.localStorage.getItem(STORE_KEY);
+      if (raw) { state = JSON.parse(raw) || {}; return; }
+      var old = window.localStorage.getItem(STORE_KEY_V2);
+      if (old) { state = migrate(JSON.parse(old) || {}); save(); }
+    } catch (e) { state = {}; }
+  }
+
+  /* v2 -> v3: the alternate became candidate 1. Ratings carry over untouched;
+     they are per-band, and the bands did not change. */
+  function migrate(old) {
+    Object.keys(old).forEach(function (tag) {
+      var s = old[tag] || {};
+      s.pick = s.pick || {};
+      Object.keys(s.swap || {}).forEach(function (band) {
+        if (s.swap[band]) s.pick[band] = 1;
+      });
+      delete s.swap;
+    });
+    return old;
+  }
+  function save() {
+    try { window.localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch (e) {}
+  }
+  function slot(tag) {
+    if (!state[tag]) state[tag] = { reviewed: false, pick: {}, rating: {} };
+    if (!state[tag].pick) state[tag].pick = {};
+    if (!state[tag].rating) state[tag].rating = {};
+    return state[tag];
+  }
+
+  function el(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text !== undefined && text !== null) n.textContent = String(text);
+    return n;
+  }
+
+  /* The card actually in play for a rung -- the chosen candidate, defaulting to
+     the first. Everything downstream — export, band view, conflict detection —
+     reads through here, so a choice is reflected everywhere rather than only
+     where it was made. Out-of-range indices fall back to 0 instead of throwing,
+     so stale stored state from a rung that lost a candidate stays loadable. */
+  function candidates(rung) {
+    return rung.candidates || [];
+  }
+  function pickIndex(ladder, rung) {
+    var s = state[ladder.tag];
+    var n = candidates(rung).length;
+    var i = s && s.pick ? s.pick[rung.band] : undefined;
+    if (typeof i !== "number" || i < 0 || i >= n) return 0;
+    return i;
+  }
+  function activeCard(ladder, rung) {
+    var c = candidates(rung);
+    return c[pickIndex(ladder, rung)] || c[0] ||
+           { name: "", mana_cost: "", type_line: "", oracle_text: "", power_rating: 1 };
+  }
+  function activeRating(ladder, rung) {
+    var s = state[ladder.tag];
+    var card = activeCard(ladder, rung);
+    if (s && s.rating && typeof s.rating[rung.band] === "number") return s.rating[rung.band];
+    return card.power_rating;
+  }
+  function reviewedCount() {
+    var n = 0;
+    LADDERS.forEach(function (l) { if (state[l.tag] && state[l.tag].reviewed) n++; });
+    return n;
+  }
+
+  /* ------------------------------------------------------- conflict model -- */
+
+  /* Index every active card by name across all ladders. Recomputed on each
+     render rather than cached, because a swap or a rating edit changes it. */
+  function cardIndex() {
+    var index = {};
+    LADDERS.forEach(function (l) {
+      (l.rungs || []).forEach(function (r) {
+        var card = activeCard(l, r);
+        var rating = activeRating(l, r);
+        if (!index[card.name]) index[card.name] = [];
+        index[card.name].push({
+          tag: l.tag, kind: l.tag_kind, band: r.band, rating: rating
+        });
+      });
+    });
+    return index;
+  }
+
+  function conflicts() {
+    var index = cardIndex();
+    var out = [];
+    Object.keys(index).forEach(function (name) {
+      var uses = index[name];
+      if (uses.length < 2) return;
+      var ratings = {};
+      var bands = {};
+      uses.forEach(function (u) { ratings[u.rating] = true; bands[u.band] = true; });
+      out.push({
+        name: name,
+        uses: uses,
+        sameRating: Object.keys(ratings).length === 1,
+        crossesBand: Object.keys(bands).length > 1
+      });
+    });
+    out.sort(function (a, b) {
+      if (a.sameRating !== b.sameRating) return a.sameRating ? 1 : -1;
+      return a.name.localeCompare(b.name);
+    });
+    return out;
+  }
+
+  function badConflictCount() {
+    return conflicts().filter(function (c) { return !c.sameRating; }).length;
+  }
+
+  /* ----------------------------------------------------------------- rail -- */
+
+  function buildRail() {
+    var rail = document.getElementById("rail");
+    rail.textContent = "";
+    ["role", "theme"].forEach(function (kind) {
+      var group = LADDERS.filter(function (l) { return l.tag_kind === kind; });
+      if (!group.length) return;
+
+      var head = el("div", "rail-group");
+      head.appendChild(el("span", null, kind === "role" ? "Roles" : "Themes"));
+      var done = group.filter(function (l) { return state[l.tag] && state[l.tag].reviewed; }).length;
+      head.appendChild(el("span", null, done + "/" + group.length));
+      rail.appendChild(head);
+
+      group.forEach(function (l) {
+        var idx = LADDERS.indexOf(l);
+        var b = el("button", "rail-item");
+        b.type = "button";
+        b.dataset.done = (state[l.tag] && state[l.tag].reviewed) ? "true" : "false";
+        if (idx === current) b.setAttribute("aria-current", "true");
+        b.appendChild(el("span", "dot"));
+        b.appendChild(el("span", "rail-name", l.tag));
+        if (l.anchorable === false) {
+          var w = el("span", "rail-warn", "!");
+          w.title = "Flagged as possibly not anchorable";
+          b.appendChild(w);
+        }
+        b.addEventListener("click", function () { go(idx); });
+        rail.appendChild(b);
+      });
+    });
+  }
+
+  /* --------------------------------------------------------------- ladder -- */
+
+  function renderLadder() {
+    var host = document.getElementById("view-ladder");
+    host.textContent = "";
+    var l = LADDERS[current];
+    if (!l) { host.appendChild(el("div", "empty", "No ladder data loaded.")); return; }
+
+    var head = el("div", "taghead");
+    var eyebrow = el("div", "eyebrow");
+    eyebrow.appendChild(el("span", "kind " + l.tag_kind, l.tag_kind));
+    eyebrow.appendChild(el("span", null, l.enum_member));
+    eyebrow.appendChild(el("span", null, (current + 1) + " of " + LADDERS.length));
+    head.appendChild(eyebrow);
+    head.appendChild(el("h2", null, l.tag));
+
+    var nc = 0, nr = (l.rungs || []).length;
+    (l.rungs || []).forEach(function (r) { nc += (r.candidates || []).length; });
+    head.appendChild(el("div", "meta",
+      nc + " candidates across " + nr + " rungs.  P = first-pass primary, " +
+      "A = its alternate, N = new this pass.  #1 and ★ mark this bench's " +
+      "ranking, which scores tag evidence in the oracle text, band clarity, brevity " +
+      "and variety -- never which pass found the card.  Nothing is pre-applied."));
+
+    if (l.search) head.appendChild(el("div", "meta", "corpus search:  " + l.search));
+    if (l.coherence) head.appendChild(el("div", "meta", "coherence:  " + l.coherence));
+
+    if (l.anchorable === false) {
+      var w = el("div", "warn");
+      w.appendChild(el("strong", null, "Flagged as possibly not anchorable: "));
+      w.appendChild(document.createTextNode(
+        "the research pass judged that nothing printed on a card makes it this tag — " +
+        "the ladder below is a best attempt. Dropping the enum member may be the better call."
+      ));
+      head.appendChild(w);
+    }
+    host.appendChild(head);
+
+    var index = cardIndex();
+    var ladderEl = el("div", "ladder");
+    /* Strongest first: power reads as a vertical axis. */
+    var ordered = (l.rungs || []).slice().sort(function (a, b) {
+      return BANDS.indexOf(b.band) - BANDS.indexOf(a.band);
+    });
+    ordered.forEach(function (r) { ladderEl.appendChild(renderRung(l, r, index)); });
+    host.appendChild(ladderEl);
+
+    var nav = el("div", "navrow");
+
+    var prev = el("button", "ghost", "← Previous");
+    prev.type = "button";
+    prev.addEventListener("click", function () { go(current - 1); });
+    nav.appendChild(prev);
+
+    var next = el("button", "ghost", "Next →");
+    next.type = "button";
+    next.addEventListener("click", function () { go(current + 1); });
+    nav.appendChild(next);
+
+    var s = slot(l.tag);
+
+    /* The ranking is advisory, so it is never pre-applied -- a rung opens on
+       whatever it opened on before. This button opts the whole ladder in at
+       once; individual rungs are still switched from their own chip rail. */
+    var recN = (l.rungs || []).filter(function (r) {
+      return typeof r.recommended === "number" && pickIndex(l, r) !== r.recommended;
+    }).length;
+    if (recN) {
+      var apply = el("button", "ghost", "Apply " + recN + " recommended");
+      apply.type = "button";
+      apply.addEventListener("click", function () {
+        (l.rungs || []).forEach(function (r) {
+          if (typeof r.recommended === "number") {
+            s.pick[r.band] = r.recommended;
+            delete s.rating[r.band];
+          }
+        });
+        save(); renderAll();
+      });
+      nav.appendChild(apply);
+    }
+
+    var mark = el("button", "ghost", s.reviewed ? "✓ Reviewed" : "Mark ladder reviewed");
+    mark.type = "button";
+    mark.dataset.on = s.reviewed ? "true" : "false";
+    mark.addEventListener("click", function () {
+      s.reviewed = !s.reviewed;
+      save();
+      if (s.reviewed && current < LADDERS.length - 1) { go(current + 1); } else { renderAll(); }
+    });
+    nav.appendChild(mark);
+
+    var hint = el("span", "keyhint");
+    hint.appendChild(document.createTextNode("review "));
+    hint.appendChild(el("kbd", null, "R"));
+    hint.appendChild(document.createTextNode("   move "));
+    hint.appendChild(el("kbd", null, "J"));
+    hint.appendChild(document.createTextNode(" "));
+    hint.appendChild(el("kbd", null, "K"));
+    nav.appendChild(hint);
+
+    host.appendChild(nav);
+  }
+
+  function renderRung(ladder, rung, index) {
+    var card = activeCard(ladder, rung);
+    var chosen = pickIndex(ladder, rung);
+    var s = slot(ladder.tag);
+
+    var row = el("div", "rung");
+    row.dataset.band = rung.band;
+
+    var left = el("div", "bandcol");
+    left.appendChild(el("span", "bandchip", rung.band));
+
+    var rw = el("label", "rating-wrap");
+    rw.appendChild(el("span", null, "rating"));
+    var input = document.createElement("input");
+    input.type = "number";
+    input.min = "1"; input.max = "10"; input.step = "0.5";
+    input.value = activeRating(ladder, rung);
+    if (typeof s.rating[rung.band] === "number" && s.rating[rung.band] !== card.power_rating) {
+      input.dataset.edited = "true";
+    }
+    input.addEventListener("change", function () {
+      var v = parseFloat(input.value);
+      var bounds = rung.band.split("-").map(Number);
+      if (isNaN(v)) v = card.power_rating;
+      /* Clamp into the rung's own band: AnchorCard raises on a rating outside
+         it, so allowing one here would only produce an export that won't load. */
+      v = Math.min(bounds[1], Math.max(bounds[0], v));
+      input.value = v;
+      s.rating[rung.band] = v;
+      save(); renderAll();
+    });
+    rw.appendChild(input);
+    left.appendChild(rw);
+    row.appendChild(left);
+
+    var body = el("div", "rung-body");
+
+    var top = el("div", "rung-top");
+    top.appendChild(el("h3", null, card.name));
+    top.appendChild(el("span", "cost", card.mana_cost || "—"));
+    top.appendChild(el("span", "typeline", card.type_line || ""));
+
+    body.appendChild(top);
+
+    /* The candidate rail. Picking is the job, so every option stays on screen;
+       the chosen one is detailed below and everything downstream reads it. */
+    var list = candidates(rung);
+    if (list.length > 1) {
+      var rail = el("div", "cands");
+      list.forEach(function (c, i) {
+        var b = el("button", "cand");
+        b.type = "button";
+        b.dataset.on = (i === chosen) ? "true" : "false";
+        b.title = c.name + " -- " + (c.note || "");
+        var src = c.source || "new";
+        var dot = el("span", "csrc", src.charAt(0).toUpperCase());
+        dot.dataset.src = src;
+        dot.title = "from the " + src + " pass";
+        b.appendChild(dot);
+        b.appendChild(el("span", "cnum", String(i + 1)));
+        b.appendChild(el("span", "cname", c.name));
+        if (c.recommended) b.appendChild(el("span", "cstar", "★"));
+        b.appendChild(el("span", "crate", c.power_rating));
+        b.addEventListener("click", function () {
+          s.pick[rung.band] = i;
+          /* Drop any hand-edited rating: it was a judgement about the previous
+             card, and silently carrying it onto a different one would be wrong. */
+          delete s.rating[rung.band];
+          save(); renderAll();
+        });
+        rail.appendChild(b);
+      });
+      body.appendChild(rail);
+    }
+
+    body.appendChild(el("div", "oracle", card.oracle_text || ""));
+
+    if (card.why) {
+      var why = el("div", "reason");
+      why.appendChild(el("b", null, "Why this band: "));
+      why.appendChild(document.createTextNode(card.why));
+      body.appendChild(why);
+    }
+    if (card.note) {
+      var note = el("div", "reason");
+      note.appendChild(el("b", null, "Prompt note: "));
+      note.appendChild(document.createTextNode(card.note));
+      body.appendChild(note);
+    }
+
+    if (card.verdict) {
+      var vd = el("div", "reason");
+      vd.appendChild(el("b", null, "Review: "));
+      vd.appendChild(document.createTextNode(card.verdict));
+      body.appendChild(vd);
+    }
+    if (rung.variety_note) {
+      body.appendChild(el("div", "variety", rung.variety_note));
+    }
+
+    /* Side-by-side is the only way to judge a rung honestly -- reading four
+       candidates one at a time rewards whichever you read last. Collapsed by
+       default so the five-rung ladder still fits on one screen. */
+    if (list.length > 1) {
+      var open = !!(s.compare && s.compare[rung.band]);
+      var tgl = el("button", "compare",
+        (open ? "Hide" : "Compare all ") + (open ? "" : list.length));
+      tgl.type = "button";
+      tgl.addEventListener("click", function () {
+        if (!s.compare) s.compare = {};
+        if (open) { delete s.compare[rung.band]; } else { s.compare[rung.band] = true; }
+        save(); renderAll();
+      });
+      body.appendChild(tgl);
+      if (open) {
+        var grid = el("div", "cmp-grid");
+        list.forEach(function (c, i) {
+          var box = el("div", "cmp");
+          box.dataset.on = (i === chosen) ? "true" : "false";
+          var nm = el("div", "cmp-name");
+          if (c.rank) nm.appendChild(el("span", "cmp-rank", "#" + c.rank));
+          nm.appendChild(document.createTextNode(c.name));
+          if (c.recommended) nm.appendChild(el("span", "cstar", "★"));
+          box.appendChild(nm);
+          box.appendChild(el("div", "cmp-meta",
+            (c.mana_cost || "--") + "  " + (c.type_line || "") +
+            "   rating " + c.power_rating +
+            (typeof c.score === "number" ? "   score " + c.score : "") +
+            (c.profile ? "   " + c.profile : "") +
+            (c.source ? "   " + c.source : "")));
+          if (c.verdict) box.appendChild(el("div", "cmp-why", c.verdict));
+          box.appendChild(el("div", "cmp-oracle", c.oracle_text || ""));
+          if (c.why) box.appendChild(el("div", "cmp-why", c.why));
+          if (i !== chosen) {
+            var use = el("button", "cmp-use", "Use this");
+            use.type = "button";
+            use.addEventListener("click", function () {
+              s.pick[rung.band] = i;
+              delete s.rating[rung.band];
+              save(); renderAll();
+            });
+            box.appendChild(use);
+          }
+          grid.appendChild(box);
+        });
+        body.appendChild(grid);
+      }
+    }
+
+    var uses = (index[card.name] || []).filter(function (u) { return u.tag !== ladder.tag; });
+    if (uses.length) {
+      var d = el("div", "dupe");
+      var mine = activeRating(ladder, rung);
+      var clash = uses.filter(function (u) { return u.rating !== mine; });
+      d.appendChild(document.createTextNode(
+        (clash.length ? "⚠ also anchors " : "also anchors ") +
+        uses.map(function (u) { return u.tag + " @ " + u.rating; }).join(", ")
+      ));
+      if (!clash.length) d.style.color = "var(--ink-faint)";
+      body.appendChild(d);
+    }
+
+    row.appendChild(body);
+    return row;
+  }
+
+  /* -------------------------------------------------------------- by band -- */
+
+  function renderBands() {
+    var host = document.getElementById("band-body");
+    host.textContent = "";
+
+    var stats = el("div", "stats");
+    function stat(k, v, n) {
+      var s = el("div", "stat");
+      s.appendChild(el("div", "k", k));
+      s.appendChild(el("div", "v", v));
+      if (n) s.appendChild(el("div", "n", n));
+      stats.appendChild(s);
+    }
+    var total = LADDERS.reduce(function (a, l) { return a + (l.rungs || []).length; }, 0);
+    var bad = badConflictCount();
+    stat("Rungs", total, LADDERS.length + " ladders × 5 bands");
+    stat("Reviewed", reviewedCount() + " / " + LADDERS.length, "ladders marked done");
+    stat("Rating conflicts", bad, bad ? "same card, two ratings — see Conflicts" : "no card rated two ways");
+    host.appendChild(stats);
+
+    BANDS.slice().reverse().forEach(function (band) {
+      var sec = el("div", "bandsec");
+      var h = el("h3");
+      h.appendChild(el("span", "bandchip", band));
+      var rows = [];
+      LADDERS.forEach(function (l) {
+        (l.rungs || []).forEach(function (r) {
+          if (r.band !== band) return;
+          rows.push({ tag: l.tag, kind: l.tag_kind, card: activeCard(l, r),
+                      rating: activeRating(l, r), index: LADDERS.indexOf(l) });
+        });
+      });
+      h.appendChild(el("span", null, rows.length + " cards"));
+      /* Colour the chip via a wrapper carrying the band, since .bandchip's
+         colour is selected through .rung[data-band]. */
+      sec.dataset.band = band;
+      h.firstChild.style.background = "var(--b" + (BANDS.indexOf(band) + 1) + ")";
+      sec.appendChild(h);
+
+      if (RUBRIC[band]) sec.appendChild(el("p", "rubric", RUBRIC[band]));
+
+      var grid = el("div", "bandgrid");
+      rows.sort(function (a, b) { return a.tag.localeCompare(b.tag); });
+      rows.forEach(function (r) {
+        var b = el("button", "bandcard");
+        b.type = "button";
+        b.appendChild(el("span", "tg", r.tag));
+        b.appendChild(el("span", "nm", r.card.name));
+        b.appendChild(el("span", "rt", r.rating));
+        b.title = r.tag + " — " + r.card.name + " (" + r.rating + ")";
+        b.addEventListener("click", function () { go(r.index); });
+        grid.appendChild(b);
+      });
+      sec.appendChild(grid);
+      host.appendChild(sec);
+    });
+
+    if (RAW.notes && RAW.notes.length) {
+      host.appendChild(el("h3", "sub", "Findings from the corpus search"));
+      RAW.notes.forEach(function (n) {
+        var f = el("div", "finding");
+        var parts = String(n).split(/:\s*/);
+        if (parts.length > 1) {
+          f.appendChild(el("b", null, parts.shift() + ": "));
+          f.appendChild(document.createTextNode(parts.join(": ")));
+        } else {
+          f.appendChild(document.createTextNode(String(n)));
+        }
+        host.appendChild(f);
+      });
+    }
+  }
+
+  /* ------------------------------------------------------------ conflicts -- */
+
+  function renderConflicts() {
+    var host = document.getElementById("conflict-body");
+    host.textContent = "";
+    var list = conflicts();
+
+    if (!list.length) {
+      host.appendChild(el("div", "empty",
+        "No card appears in more than one ladder. Every rung is a distinct card."));
+      return;
+    }
+
+    var bad = list.filter(function (c) { return !c.sameRating; });
+    var ok = list.filter(function (c) { return c.sameRating; });
+
+    var stats = el("div", "stats");
+    function stat(k, v, n) {
+      var s = el("div", "stat");
+      s.appendChild(el("div", "k", k));
+      s.appendChild(el("div", "v", v));
+      if (n) s.appendChild(el("div", "n", n));
+      stats.appendChild(s);
+    }
+    stat("Rating conflicts", bad.length, bad.length ? "must be fixed before export" : "clean");
+    stat("Shared, consistent", ok.length, "same card, same rating in two ladders — fine");
+    host.appendChild(stats);
+
+    if (bad.length) {
+      host.appendChild(el("h3", "sub", "Conflicts — same card, different ratings"));
+      bad.forEach(function (c) { host.appendChild(conflictCard(c, false)); });
+    }
+    if (ok.length) {
+      host.appendChild(el("h3", "sub", "Shared rungs — consistent, no action needed"));
+      ok.forEach(function (c) { host.appendChild(conflictCard(c, true)); });
+    }
+  }
+
+  function conflictCard(c, benign) {
+    var box = el("div", "conflict" + (benign ? " benign" : ""));
+    box.appendChild(el("h4", null, c.name));
+    var ul = el("ul");
+    c.uses.forEach(function (u) {
+      ul.appendChild(el("li", null, u.tag + " (" + u.kind + ") — band " + u.band + ", rating " + u.rating));
+    });
+    box.appendChild(ul);
+    box.appendChild(el("div", "verdict", benign
+      ? "Consistent — the same card illustrating the same band for two tags."
+      : (c.crossesBand
+          ? "Crosses a band boundary — cannot be fixed by renumbering. Replace the card in one ladder."
+          : "Same band, different rating — agree on one number.")));
+    return box;
+  }
+
+  /* --------------------------------------------------------------- export -- */
+
+  /* What the page hands back: which card each reviewed rung settled on, and any
+     rating the reviewer overrode. Deliberately a selection and not Python --
+     `anchor_bench/export.py` renders the registry source, so there is one
+     implementation of that format and it sits somewhere tests can reach. Picks
+     carry the card's name rather than its index, because an index quietly means
+     a different card as soon as the pool is re-ranked. */
+  function buildSelection() {
+    var done = LADDERS.filter(function (l) { return state[l.tag] && state[l.tag].reviewed; });
+    var out = { reviewed: [], picks: {} };
+    done.forEach(function (l) {
+      out.reviewed.push(l.enum_member);
+      var picks = {};
+      BANDS.forEach(function (band) {
+        var rung = (l.rungs || []).filter(function (r) { return r.band === band; })[0];
+        if (!rung) return;
+        picks[band] = {
+          name: activeCard(l, rung).name,
+          power_rating: activeRating(l, rung)
+        };
+      });
+      out.picks[l.enum_member] = picks;
+    });
+    return out;
+  }
+
+  function buildSelectionText() {
+    var done = LADDERS.filter(function (l) { return state[l.tag] && state[l.tag].reviewed; });
+    if (!done.length) {
+      return [
+        '{', '  "reviewed": [],', '  "picks": {}', '}', '',
+        "// No ladder marked reviewed yet. Work through the Ladders tab and mark",
+        "// each one reviewed; they appear here as you go."
+      ].join("\n");
+    }
+    var text = JSON.stringify(buildSelection(), null, 1);
+    var bad = badConflictCount();
+    if (bad) {
+      text += [
+        "", "",
+        "// WARNING: " + bad + " chosen card(s) carry two different ratings across",
+        "// ladders. Every ladder shares one cached system prompt, so this teaches the",
+        "// model the inconsistency anchors exist to prevent. See the Conflicts tab",
+        "// before exporting -- the comment lines are not part of the JSON."
+      ].join("\n");
+    }
+    return text;
+  }
+
+  function renderExport() { document.getElementById("code").textContent = buildSelectionText(); }
+
+  document.getElementById("copy").addEventListener("click", function () {
+    var text = document.getElementById("code").textContent;
+    var note = document.getElementById("copy-note");
+    function fallback() { note.textContent = "Select the text below and copy it."; }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () {
+        note.textContent = "Copied.";
+        window.setTimeout(function () { note.textContent = ""; }, 2200);
+      }, fallback);
+    } else { fallback(); }
+  });
+
+  /* ------------------------------------------------------------ plumbing -- */
+
+  function go(index) {
+    if (index < 0 || index >= LADDERS.length) return;
+    current = index;
+    showView("ladder");
+    renderAll();
+    window.scrollTo({ top: 0 });
+  }
+
+  function showView(name) {
+    ["ladder", "band", "conflict", "export"].forEach(function (v) {
+      document.getElementById("view-" + v).hidden = (v !== name);
+      document.getElementById("tab-" + v).setAttribute("aria-selected", String(v === name));
+    });
+    if (name === "band") renderBands();
+    if (name === "conflict") renderConflicts();
+    if (name === "export") renderExport();
+  }
+
+  ["ladder", "band", "conflict", "export"].forEach(function (v) {
+    document.getElementById("tab-" + v).addEventListener("click", function () { showView(v); });
+  });
+
+  function renderAll() {
+    buildRail();
+    renderLadder();
+    if (!document.getElementById("view-band").hidden) renderBands();
+    if (!document.getElementById("view-conflict").hidden) renderConflicts();
+    if (!document.getElementById("view-export").hidden) renderExport();
+
+    var n = reviewedCount();
+    document.getElementById("count").textContent = n + " / " + LADDERS.length;
+    document.getElementById("bar").style.width =
+      (LADDERS.length ? (n / LADDERS.length * 100) : 0) + "%";
+
+    var tab = document.getElementById("tab-conflict");
+    tab.textContent = "Conflicts";
+    var bad = badConflictCount();
+    if (bad) {
+      var badge = el("span", "badge", bad);
+      tab.appendChild(badge);
+    }
+  }
+
+  document.addEventListener("keydown", function (e) {
+    var t = e.target;
+    if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA")) return;
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    if (document.getElementById("view-ladder").hidden) return;
+
+    var l = LADDERS[current];
+    if (!l) return;
+
+    if (e.key === "r" || e.key === "R") {
+      var s = slot(l.tag);
+      s.reviewed = !s.reviewed;
+      save();
+      if (s.reviewed && current < LADDERS.length - 1) { go(current + 1); } else { renderAll(); }
+      e.preventDefault();
+    } else if (e.key === "j" || e.key === "ArrowDown") {
+      go(current + 1); e.preventDefault();
+    } else if (e.key === "k" || e.key === "ArrowUp") {
+      go(current - 1); e.preventDefault();
+    }
+  });
+
+  load();
+  renderAll();
+})();
+</script>

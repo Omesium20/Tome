@@ -232,13 +232,24 @@ project/
       metadata_generator/          implemented, single-tier
         schema.py                  CardMetadataBlueprint + closed Role/Theme/SynergyTag vocab
         prompt.py                  cached system block + per-card user message
-        anchors.py                 anchor-card registry (empty until the benchmark)
+        anchors.py                 anchor-card registry (51 five-rung ladders)
         model_backend.py           MetadataModelBackend protocol + AnthropicMetadataBackend
         sink.py                    batched upsert into card_metadata
         pipeline.py                generate_metadata() orchestrator
         __main__.py                CLI
       document_generator.py
       embeddings.py
+      anchor_bench/                maintainer tool: rebuild the anchor ladders
+        pool.py                    candidate-pool contract + corpus verification
+        ranking.py                 ruler-mark triage; provenance is never scored
+        page.py                    one self-contained HTML review page
+        export.py                  reviewed selection -> register(AnchorLadder(...))
+        example.py                 a small real pool: the contract, runnable
+        __main__.py                CLI: example / validate / rank / page / export
+      benchmark/                   maintainer tool: the benchmark run log
+        store.py                   standalone SQLite; no Alembic, no settings
+        report.py                  per-bucket text and HTML reports
+        __main__.py                CLI: init / seed-demo / report / review
 
     -- shared --
     database/                      split by which database the entities live in
