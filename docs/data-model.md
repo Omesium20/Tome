@@ -97,7 +97,7 @@ AI-generated strategic information, produced **once, centrally** per card by the
 | roles        | closed vocabulary — see *Controlled vocabulary* below. Multi-valued                                                                                                                        |
 | themes       | closed vocabulary, same mechanism as `roles`. Multi-valued                                                                                                                                 |
 | game_stage   | `GameStageProfile` — independent `early`/`mid`/`late` scores, not a single label. See below                                                                                                |
-| power_rating | 1–10, calibrated against the anchor card for the card's dominant role/theme — see *Anchor cards* below                                                                                     |
+| power_rating | 1–10, calibrated against the five-rung anchor ladder for the card's dominant role/theme — see *Anchor cards* below                                                                        |
 | strengths    |                                                                                                                                                                                             |
 | weaknesses   |                                                                                                                                                                                             |
 | synergy_tags | closed vocabulary, same mechanism as `roles`                                                                                                                                               |
@@ -108,6 +108,16 @@ AI-generated strategic information, produced **once, centrally** per card by the
 `roles`, `themes`, and `synergy_tags` are each a **closed enum**, not free text. Nothing forces ~31,830 independent model calls to describe the same concept with the same string — "Ramp", "Mana Ramp", and "Mana Acceleration" would otherwise all land as distinct values, which silently breaks retrieval filtering and the deck builder's role-based grouping (`#carddocument`'s `filter_fields`, `#cardcache`'s `roles`). The model is shown the exact closed list it must choose from in the prompt itself; it free-generates `summary`/`strengths`/`weaknesses` but never these three fields.
 
 Example (Cultivate): roles `[Ramp, Mana Fixing]`, themes `[Big Mana, Landfall]`.
+
+#### A member has to be decidable from the card
+
+Closing the vocabulary only buys consistency if every member is a question the model can actually answer from the one card in front of it. Generation is stateless and per-card: the prompt carries that card's facts and nothing about a deck, a curve, or a game plan. A member describing a property the card doesn't individually have can't be assigned correctly, only guessed at — and because the enum is closed, the guess comes back as a confident, valid-looking value that retrieval will filter on.
+
+**`Theme.MIDRANGE` was removed for exactly this reason.** "Midrange" describes a deck's posture over a whole game — a curve that trades early and takes over in the middle. No printed card *is* midrange; a three-mana value creature is equally at home in an aggro, control, or combo shell. An anchor ladder was built for it during anchor selection and came back self-labeled as not honest: every rung would be graded by a property the card doesn't carry, so a rater reading only the card would tag each one by its real function instead. Dropping the member was the fix; anchoring it would have shipped five reference cards teaching the model to answer an unanswerable question.
+
+**`Theme.FLYING` was removed too, but for a different reason** — worth recording because it is a second, subtler way a member fails. Flying is perfectly decidable from a card; the problem was the ladder. The theme is meant to collect cards *paid off* by evasion, and almost every card that reads as a strong flying card is one that *grants* it — so the rungs kept grading a different question than the tag asks, most visibly at the top of the scale, where the payoff side has nearly nothing. A member can be decidable and still be unanchorable. Evasion is better carried as a property of a card than as an archetype of its own.
+
+Apply the same test before adding a member. `Theme.CONTROL` and `Theme.AGGRO` sit close to this line and were kept deliberately — a card can *support* those strategies in ways its text shows (a tax permanent, a pod-wide damage payoff), even though the archetype itself is a deck property. The distinction is whether the card's own text is evidence for the tag, not whether the tag names something real about decks.
 
 ### game_stage: GameStageProfile
 
@@ -124,9 +134,49 @@ The three scores are **not** a distribution — they don't sum to anything fixed
 
 ### Anchor cards
 
-`power_rating` and the role/theme assignments are otherwise ungrounded: each generation call is stateless, so nothing keeps two calls using the 1–10 scale the same way or agreeing on the boundary between adjacent roles. **Every enum value in `roles` and `themes` has exactly one designated anchor card** — a hand-picked, hand-labeled example that unambiguously *is* that role or theme, carrying a fixed `power_rating`. Anchors are embedded directly in the generation prompt's cached system block as few-shot calibration examples, so every call — on every model tier — sees the same fixed reference points.
+`power_rating` and the role/theme assignments are otherwise ungrounded: each generation call is stateless, so nothing keeps two calls using the 1–10 scale the same way or agreeing on the boundary between adjacent roles. Anchors are the fix — hand-picked, hand-labeled cards embedded directly in the generation prompt's cached system block, so every call, on every model tier, sees the same fixed reference points.
 
-Anchors are drawn from the "easy" bucket of the benchmarking sample (`benchmarking-and-testing.md#the-300-card-sample`): cards whose role, theme, and game stage are obvious enough that hand-labeling them isn't itself a judgment call. Changing an anchor's assigned rating shifts the scale for every card sharing that role or theme, so anchors are a deliberate, reviewed edit, not a casual one.
+**Each `roles` and `themes` value gets a *ladder* of five anchor cards, not one.** One card per band of the 1–10 scale: 1-2, 3-4, 5-6, 7-8, 9-10.
+
+A single labeled example per tag was the original design, and it doesn't work. Telling the model "Cultivate is a 6 for Ramp" pins exactly one point on the scale and says nothing about the rest of it: the model has no reference for what a 3 or a 9 looks like, so everything away from that one point is back to freehand judgment — which is the drift the anchors existed to stop, just displaced to the ends of the range. A labeled point is not a calibrated scale. Five graded points *are* one: they turn an abstract judgment ("how good is this, out of ten?") into a comparison against concrete cards, which is the kind of question a language model answers consistently.
+
+The bands are two points wide rather than one so a ladder is five cards instead of ten. Five is enough to interpolate between and short enough to keep in a cached system block across all 51 tags; ten would double the block for a precision `power_rating` does not carry anyway.
+
+#### The band rubric
+
+What each band means. This is the fixed rubric anchor candidates are picked against, and the one a reviewer checks a proposed rung with — deliberately stated here in prose rather than baked into `PowerBand`'s member names in code, so it can be revised without a code change.
+
+| Band | Meaning |
+|---|---|
+| 1-2 | Effectively unplayable in Commander — too slow, too small an effect, or strictly outclassed by a common |
+| 3-4 | Filler: playable in a budget list or a very specific build, cut from most decks that want the effect |
+| 5-6 | Solidly playable: a reasonable inclusion in any deck that wants this effect |
+| 7-8 | Strong staple: most decks that can play it do |
+| 9-10 | Format-defining: warps deckbuilding around itself, or wins the game on its own |
+
+Two rules about reading that table. Both are easy to get wrong by default, and both change which cards belong in which band:
+
+- **Universality is not power.** A cheap colorless card that every deck can play is a *staple*, not a format-definer — breadth of playability and magnitude of effect are different axes, and only the second one is what 9-10 measures. Sol Ring is the worked example: it is in more decks than any other card in the format and it belongs at **7-8**, not 10. It accelerates; it does not warp a game around itself or win one on the spot. The top band is reserved for effects that do.
+- **Cards are judged in a four-player pod**, not in 1v1. Life totals are 40, games are long, and a card's value shifts accordingly: single-target removal is worth less when there are three opponents, symmetrical effects and board wipes are worth more, and a two-card combo that ends the game outright is worth far more than its 1v1 reputation suggests.
+
+#### A ladder is complete or it is absent
+
+`AnchorLadder` refuses to construct with fewer than five rungs, or with two rungs claiming the same band. A partial ladder is worse than no ladder at all: the missing band is precisely the region the model has to guess at, and the four rungs around it make that guess *look* calibrated — in the output there is nothing to distinguish an interpolated rating from an anchored one. No ladder at least fails visibly, and the prompt tells the model to fall back on its own consistent judgment when a tag has none. So a tag is either fully anchored or openly unanchored; there is no partially-calibrated state. `missing_tags()` reports which tags are in the second category, and a full-corpus run should not start before that list has been read.
+
+#### How the model uses a ladder
+
+The prompt instructs it not to score `power_rating` freehand. It finds a ladder for a role or theme the card it is rating shares, reads the card against those five rungs, and places it where it falls between them — if it is clearly better than the 5-6 rung and clearly worse than the 9-10 rung, it is a 7 or an 8. Where a card shares several tags that have ladders, it calibrates against the one its strongest effect belongs to. That is a comparison, not a judgment call against an abstract scale, and it is the difference between a rating that means the same thing in call 30,000 as it did in call 1.
+
+Anchors are drawn from the "easy" bucket of the benchmarking sample (`benchmarking-and-testing.md#ground-truth`), or picked to that bucket's standard: cards whose role, theme, and power level are obvious enough that hand-labeling them isn't itself a judgment call. Five rungs across 51 tags is 255 cards, more than a 100-card bucket can supply, so the bucket sets the bar rather than the boundary. Changing a rung's assigned rating shifts the scale for every card sharing that role or theme, so anchors are a deliberate, reviewed edit, not a casual one.
+
+**The registry now ships populated** — all 51 ladders, 255 distinct cards, in `backend/knowledge_pipeline/metadata_generator/anchors.py`. It shipped empty until a human had reviewed the candidates, because a guessed anchor is indistinguishable from a reviewed one in the generated corpus. How the 255 were settled, and why the shape of that process matters more than its output:
+
+- **A corpus search proposed candidates, four per rung.** Every one was resolved against the `cards` table, so each rung's name, oracle text, and Commander legality are the corpus's own rather than a recollection — a misremembered anchor would be a silent, permanent error in every rating that reads it.
+- **Candidates were ranked on ruler-mark properties, not card quality**: whether the tag is visible in the card's own oracle text (the only evidence the model gets), whether the rating sits unambiguously inside its band, how fast the text reads, and how much a rung differs from its neighbours.
+- **A human chose every rung.** The ranking left the top two candidates exactly tied in 101 of the 260 rungs it ranked, so it narrowed the field and did not decide it. Treat the ranking as triage.
+- **Two whole-set rules**, enforced by tests rather than by comment: no card carries two different ratings across ladders, and no card anchors two ladders. The first prevents one prompt from teaching that the scale depends on which ladder you read; the second keeps 255 independent reference points, and keeps the same card off both sides of the `Role`/`Theme` pairs that share a word.
+
+Every step of that is a tool, not a one-off: `knowledge_pipeline/anchor_bench` (`benchmarking-and-testing.md#recalibrating-the-anchors`) validates a candidate pool against the corpus, ranks it, builds the review page, and renders the reviewed result back into `anchors.py`. Revising one rung or recalibrating all 255 starts there. The pool these ladders were chosen from is deliberately *not* kept — it would go stale against a later corpus, and a fresh one is cheap now that the tooling exists.
 
 ## CardDocument
 

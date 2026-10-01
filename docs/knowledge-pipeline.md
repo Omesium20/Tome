@@ -44,7 +44,7 @@ Module layout (`knowledge_pipeline/metadata_generator/`, mirroring `scryfall_imp
 | `__main__.py` | CLI: arg parsing, `python -m knowledge_pipeline.metadata_generator` |
 | `pipeline.py` | orchestration, the needs-metadata query, batched writes |
 | `prompt.py` | builds the cached system block (rubric + closed taxonomy + anchors) and the per-card user message |
-| `anchors.py` | the anchor-card registry (`data-model.md#anchor-cards`) — **empty until the benchmark picks them**; `generate_metadata` logs a warning rather than refusing to run, so the pipeline stays testable before that |
+| `anchors.py` | the anchor-card registry (`data-model.md#anchor-cards`) — **populated: one five-rung ladder for each of the 51 `Role`/`Theme` members, 255 distinct cards**, rendered into the cached system block. `generate_metadata` logs a warning rather than refusing to run if a tag is unanchored, which is what keeps the pipeline testable with a trimmed registry |
 | `model_backend.py` | `MetadataModelBackend` protocol + `AnthropicMetadataBackend` |
 | `schema.py` | `CardMetadataBlueprint` and the closed `Role`/`Theme`/`SynergyTag` vocabulary — the shape a generation call must produce |
 | `sink.py` | batched `INSERT ... ON CONFLICT DO UPDATE` into `card_metadata`, mirroring `scryfall_importer/sink.py` |

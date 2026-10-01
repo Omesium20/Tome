@@ -89,3 +89,55 @@ This is the split documented as current architecture in `architecture.md#the-spl
 **Why it changed:** the two copies were the same filtering rules serving two views of the same data, and drifted as one was edited without the other.
 
 **What replaced it:** `src/lib/filter-cards.ts` as the single source of truth (`CollectionFilters`, `DEFAULT_FILTERS`, `applyFilters`), consumed by both surfaces. Current convention: `frontend.md#shared-filter-logic-and-ui-do-not-re-duplicate`.
+
+---
+
+## Anchor cards: one exemplar per tag → a five-rung ladder
+
+**Original state:** every `Role`/`Theme` value had **exactly one** designated anchor card carrying a fixed `power_rating`, embedded in the generation prompt as a calibration example. `ANCHORS` was a `dict[Role | Theme, AnchorCard]`.
+
+**Why it changed:** one labeled point cannot calibrate a scale. Telling the model "Cultivate is a 6" gives it no reference for what a 3 or a 9 looks like, so the remaining nine-tenths of the range stayed exactly as ungrounded as before — the drift the anchors existed to stop was displaced to the ends rather than removed. The candidate set made this concrete: the clearest-embodiment pick for each of the 53 tags clustered at 6–7 and produced *nothing* in the 1–2 band, so the model would never have seen an example of "unplayable".
+
+A second problem surfaced with it: `docs/data-model.md` defined the 1–10 scale only as "calibrated against the anchor card", which is circular — the anchors *are* the scale, so the scale had no stated meaning at all.
+
+**What replaced it:** an `AnchorLadder` per tag — five `AnchorCard`s, one per band (`1-2`, `3-4`, `5-6`, `7-8`, `9-10`). The model now rates by reading a card against the rungs of a ladder for a tag it shares and placing it between them, a comparison rather than a judgment against an abstraction. A ladder is complete or absent: `AnchorLadder` refuses to construct with fewer than five, because a tag with four reviewed rungs and one guess yields ratings indistinguishable from fully anchored ones. The band rubric is now written down (`data-model.md#the-band-rubric`), including the rule the design most easily gets wrong — **universality is not power**: a cheap colorless card playable everywhere is a 7–8 staple, not a 9–10.
+
+Cost: the hand-labeling job went from 53 cards to 260, and it gates the whole benchmark (`benchmarking-and-testing.md#ground-truth`).
+
+**Two bugs this surfaced, both worth remembering:**
+
+- `ANCHORS` keyed on the enum member silently lost ladders. `Role` and `Theme` are `StrEnum`s, so `Role.LIFEGAIN == Theme.LIFEGAIN` and the two hash identically — and both vocabularies define `Lifegain` *and* `Equipment`. Each pair collapsed into one dict entry, last write winning, with nothing raised and `missing_tags()` blind to it for the same reason. The registry is now keyed by `anchor_key(tag)` (`"Role.LIFEGAIN"`) and populated through `register(ladder)`, which takes the ladder so the tag can't be stated twice and disagree. `AnchorLadder.render()` also qualifies its heading by kind, since two prompt blocks headed `Lifegain:` would be ambiguous to the model as well.
+- Building the two halves of the registry independently let the same card be rated two ways. 17 cards ended up with conflicting ratings across the role and theme files, 12 of them crossing a band boundary. All 52 ladders render into **one shared cached system block**, so a card appearing at two ratings teaches the model the inconsistency the anchors exist to prevent. Any future split of this work needs a cross-file rating check, not just per-file validation.
+
+## Taxonomy: `Theme.MIDRANGE` dropped rather than anchored
+
+**Original state:** `Midrange` was a member of the `Theme` closed vocabulary.
+
+**Why it changed:** building its anchor ladder proved it wasn't assignable. Generation is stateless and per-card, but "midrange" describes a deck's posture across a whole game — no printed card *is* midrange, and a three-mana value creature is equally at home in aggro, control, or combo. The ladder built for it came back self-labeled as not honest. Because the vocabulary is closed, the model couldn't decline the tag; it would have returned a confident, schema-valid guess that retrieval then filtered on.
+
+**What replaced it:** nothing — the member was removed, leaving 28 themes and 52 tags. The general rule it produced is now stated in `data-model.md#a-member-has-to-be-decidable-from-the-card`: a closed-vocabulary member has to be a question answerable from the one card in the prompt. `Theme.CONTROL` and `Theme.AGGRO` sit near the same line and were kept deliberately, because a card's own text can be evidence that it *supports* those strategies.
+
+## Taxonomy: `Theme.FLYING` dropped rather than anchored
+
+**Original state:** `Flying` was a member of the `Theme` closed vocabulary, added on the reasoning that flying is unambiguously printed on cards and so trivially decidable — the exact test `MIDRANGE` had just failed.
+
+**Why it changed:** it is decidable, and that turned out not to be enough. The theme is meant to collect cards a flying-based deck *wants* — payoffs — but almost every card that reads as a strong flying card is one that *grants* evasion. Building the ladder made the mismatch impossible to paper over: candidate after candidate was an anthem or a keyword-granter, and the 9-10 rung had essentially nothing on the payoff side at all. Every rung would have graded a different question than the tag asks, which is the same failure as `MIDRANGE` arriving by a different route.
+
+**What replaced it:** nothing — the member was removed, leaving 27 themes and 51 tags. Evasion is a property of a card, not an archetype, and the card's own oracle text already carries it for anything downstream that cares.
+
+**The transferable rule:** *decidable from the card* is necessary but not sufficient. A member also has to be **anchorable** — there must be a real card at each band that is a typical instance of the tag. A member that cannot fill its own top rung is describing something other than what its name suggests. Try building the ladder before adding the member; it is a cheaper test than it looks, and it is the one that catches this class.
+
+## Anchors: registry ships populated (and a bias found in the selection itself)
+
+**Original state:** `ANCHORS` shipped **empty** by design, with the pipeline logging a warning and falling back to the model's own judgment. The reasoning was sound — a guessed anchor is indistinguishable from a reviewed one in the generated corpus — but it left `power_rating` with no stated meaning at all, since the anchors *are* the scale.
+
+**What replaced it:** all 51 ladders, 255 distinct cards. Candidates were proposed by corpus search (four per rung, each resolved against the `cards` table so no rung is a recollection), ranked mechanically, then chosen by hand.
+
+**What the numbers say about that process:** the ranking left the top two candidates **exactly tied in 101 of 260 rungs**, and within 0.75 in 204. It reliably separates a clearly-worse candidate from the rest and rarely picks a winner among near-equals. That is the honest shape of the problem, not a defect in the scoring — which is why the selection is a human pass with machine triage, and why nothing was auto-applied.
+
+**Two biases found in the selection machinery, both worth remembering because both favoured the newer work:**
+
+- **An "obscurity bonus" that only new candidates could earn.** The brief argued that a low-profile card is often a *better* ruler than a famous one, because the model cannot substitute reputation for applying the rubric — so the scorer awarded a point for it. But only the second search pass recorded a `profile` field; the 500 earlier picks had none, so the signal was a structural one-point handicap on every older candidate. It moved the recommendation split from 163 new / 97 old to **129 / 131** once removed. A signal that one group cannot physically earn is not a signal, it is a thumb on the scale — check that every candidate *can* score on a criterion before weighting it.
+- **A too-literal text test on the heaviest-weighted signal.** Tag membership was checked by matching each ladder's own SQL `LIKE` pattern as a substring, which scored *Cultivate* as having no evidence of being Ramp: the predicate says "basic land card" and the card says "basic land cards". Content-word overlap cut false negatives from 380 to 225. On the signal that carries the most weight, a false negative is worse than a loose match.
+
+**Two whole-set rules the ladders obey, now enforced by tests rather than by comment** (`tests/test_anchors.py`): no card carries two different ratings across ladders, and no card anchors two ladders. The first is the cross-file check the previous entry said any future split of this work would need. The second is weaker but real — a shared rung is one fewer independent reference point, and on the `Role`/`Theme` pairs that share a word (Lifegain, Equipment) the same card on both sides anchors both halves of the distinction those tags exist to draw. Enforcing the second turned up three rungs whose *axis* was wrong as well: `Theme.SACRIFICE`'s top rung graded a payoff on a ladder that measures outlets, and `Theme.LIFEGAIN`'s graded a card that gains life on a ladder that measures cards triggered *by* gaining it.

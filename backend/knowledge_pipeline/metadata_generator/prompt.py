@@ -32,10 +32,14 @@ Rules:
   distribution — they don't need to sum to anything, and a card can score
   high (or low) on all three at once. Score each stage on how much the card
   is doing *in that phase of a Commander game specifically*.
-- `power_rating` is 1-10, calibrated against the anchor cards below where
-  they exist for a role/theme this card shares. No anchors are available yet
-  for a tag this card uses only, using your own judgment consistently is
-  the best available substitute.
+- `power_rating` is 1-10, and is *not* scored freehand. Each role and theme
+  with a calibration ladder below has five reference cards, one per band of
+  the scale. Find a ladder for a tag this card shares, read the card against
+  those five rungs, and place it where it falls between them. If the card
+  shares several tags that have ladders, calibrate against the one its
+  strongest effect belongs to. Only when no tag this card uses has a ladder
+  should you fall back on your own judgment, applied as consistently as you
+  can.
 - `summary` is 1-2 sentences on what the card does and why someone would
   play it. `strengths`/`weaknesses` are short, specific bullet phrases, not
   restatements of the oracle text.

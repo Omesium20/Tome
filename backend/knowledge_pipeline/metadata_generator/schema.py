@@ -15,10 +15,10 @@ them, so retrieval filtering and the deck builder's role-based grouping never
 see near-duplicate strings ("Ramp" vs. "Mana Ramp") for the same concept.
 
 The members below are a first-draft vocabulary, not a ratified taxonomy —
-see `docs/data-model.md#anchor-cards`. Adding, renaming, or removing a member
-later requires assigning it an anchor card before it can be trusted at the
-same 1-10 scale as the rest, and is a deliberate, reviewed edit for that
-reason.
+see `docs/data-model.md#anchor-cards`. Adding or renaming a `Role`/`Theme`
+member later requires building it a full five-rung anchor ladder before it
+can be trusted at the same 1-10 scale as the rest — not one example card, a
+card per power band — and is a deliberate, reviewed edit for that reason.
 """
 
 from __future__ import annotations
@@ -96,10 +96,21 @@ class Theme(StrEnum):
     MILL = "Mill"
     LIFEGAIN = "Lifegain"
     EQUIPMENT = "Equipment"
-    MIDRANGE = "Midrange"
+    # No MIDRANGE. It was dropped rather than anchored: nothing printed on a
+    # card makes it midrange — the word describes a deck's posture across a
+    # whole game, so any ladder for it grades cards by a property they don't
+    # individually have. A closed vocabulary only earns its strictness if every
+    # member is decidable from the card in front of the model.
     TREASURE = "Treasure"
     DISCARD = "Discard"
-    FLYING = "Flying"
+    # No FLYING, dropped for a different reason than MIDRANGE. Flying is
+    # decidable from the card -- but an anchor ladder for it grades the wrong
+    # thing. Every rung that reads as a strong "flying card" is a card that
+    # *grants* evasion, while the theme is supposed to collect cards that are
+    # *paid off* by it, and the top of the scale has almost nothing in the
+    # second group. A ladder whose rungs answer a different question than the
+    # tag asks teaches the model to mislabel rather than to calibrate. Evasion
+    # is better served as a property of a card than as an archetype of its own.
 
 
 class SynergyTag(StrEnum):
