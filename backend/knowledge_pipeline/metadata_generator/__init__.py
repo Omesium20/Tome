@@ -9,11 +9,21 @@ Run it with::
 """
 
 from .pipeline import MetadataReport, generate_metadata
-from .schema import CardMetadataBlueprint, GameStageProfile, Role, SynergyTag, Theme
+from .schema import (
+    CardMetadataBlueprint,
+    GameStageProfile,
+    MetadataPassOne,
+    MetadataPassTwo,
+    Role,
+    SynergyTag,
+    Theme,
+)
 
 __all__ = [
     "CardMetadataBlueprint",
     "GameStageProfile",
+    "MetadataPassOne",
+    "MetadataPassTwo",
     "MetadataReport",
     "Role",
     "SynergyTag",

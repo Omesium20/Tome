@@ -2,7 +2,7 @@
 
 Tome runs on your own machine. Your collection and your decks live in a database you control and are never transmitted anywhere. Deck generation runs locally, against a model **you** choose — a local model on your own hardware, or a frontier API with your own key.
 
-The one thing you don't have to build yourself is the card knowledge base. Analyzing ~33,000 cards is one model call per card plus a full embedding pass; that work is done once, centrally, and served to every install through the hosted **Knowledge API**. You can still run your own if you want to (see [Running your own knowledge plane](#running-your-own-knowledge-plane)) — you just don't have to.
+The one thing you don't have to build yourself is the card knowledge base. Analyzing ~33,000 cards is two model calls per card plus a full embedding pass; that work is done once, centrally, and served to every install through the hosted **Knowledge API**. You can still run your own if you want to (see [Running your own knowledge plane](#running-your-own-knowledge-plane)) — you just don't have to.
 
 ```
    hosted by us                          your machine
@@ -180,7 +180,7 @@ You don't need this to use Tome. Do it if you want zero dependency on our servic
 
 It means running all four pieces yourself: a Postgres with `pgvector`, the Knowledge Pipeline to populate it, the Knowledge API in front of it, and `KNOWLEDGE_API_URL` pointed at your instance.
 
-**Understand the cost first.** The Scryfall import is fast and cheap — about 10 seconds against a warm cache. The stages after it are neither: metadata generation is **one model call per card across ~33,000 cards**, plus a full embedding pass. That bill, in time and API spend, is the entire reason the hosted service exists.
+**Understand the cost first.** The Scryfall import is fast and cheap — about 10 seconds against a warm cache. The stages after it are neither: metadata generation is **two model calls per card across ~33,000 cards**, plus a full embedding pass. That bill, in time and API spend, is the entire reason the hosted service exists.
 
 ```bash
 # 1. A Postgres with pgvector enabled (Neon, Supabase, RDS, or your own).

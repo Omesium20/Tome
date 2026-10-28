@@ -196,7 +196,7 @@ Uses a model the user chooses — local or frontier.
 
 Rationale:
 
-- **Build the knowledge base once.** Card analysis is one model call per card across ~33,000 cards. Done centrally, the cost is paid once, prompt fixes land in one place, and every user gets identical retrieval quality.
+- **Build the knowledge base once.** Card analysis is two model calls per card across ~33,000 cards. Done centrally, the cost is paid once, prompt fixes land in one place, and every user gets identical retrieval quality.
 - **Generate decks on the client.** Generation is per-user and bursty. Client-side means we host no inference, hold no keys on users' behalf, and see no collections. It is also what makes local models possible.
 - **User data never leaves the machine.** The client asks the Knowledge API about *cards*, never about *the user*.
 
@@ -370,7 +370,7 @@ Hugging Face Embeddings
 Cloud Postgres + pgvector
 ```
 
-Metadata generation is one model call per card across the whole corpus — the expensive stage that running this centrally exists to spare every user.
+Metadata generation is two model calls per card across the whole corpus — the expensive stage that running this centrally exists to spare every user.
 
 ---
 

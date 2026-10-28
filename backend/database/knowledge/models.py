@@ -80,8 +80,24 @@ class CardMetadata(Base):
     card_id: Mapped[str] = mapped_column(
         ForeignKey("cards.oracle_id"), primary_key=True
     )
+    # A literal restatement of the card's rules text, generated before any
+    # of the judgment fields below it (`metadata_generator/schema.py` explains
+    # why it is the blueprint's first field). Stored, not just a prompting
+    # device: the document generator reads oracle text through it, and a row
+    # whose `mechanics` misreads the card explains a wrong `power_rating`
+    # without a re-run.
+    mechanics: Mapped[str]
     summary: Mapped[str]
     roles: Mapped[list[str]] = mapped_column(JSON)
+    # Which of `roles` the card is most defined by — a `Role` value, asked for
+    # directly rather than inferred from the order of the list beside it. It
+    # decides which anchor ladder the power rating is calibrated against
+    # (`metadata_generator/schema.py`'s `ladder_tags`), and it is what a reader
+    # wanting "what is this card for" should group by.
+    #
+    # Nullable: a card can honestly have no role at all (a basic land), and
+    # rows written before this column existed have none either.
+    primary_role: Mapped[str | None]
     themes: Mapped[list[str]] = mapped_column(JSON)
     game_stage: Mapped[str]
     power_rating: Mapped[float]

@@ -2,7 +2,7 @@
 
 Detailed technical reference for the Knowledge Pipeline introduced in `docs/architecture.md#knowledge-pipeline`. That document is the source of truth for the pipeline's shape and stage order; this file exists to hold the implementation-level detail for each stage as it's built, so `architecture.md` doesn't accumulate detail it wasn't meant to hold.
 
-**This pipeline is operated by maintainers, not by users.** It runs offline against the shared cloud Postgres, and its output is the same for everyone — every client reads the result through the Knowledge API (`knowledge-api.md`) rather than building it locally. That is the point: metadata generation is one model call per card across ~33,000 cards, and this way every user's first deck is free of that cost. (See `lessons-learned.md#knowledge-base-from-per-user-generation-to-a-hosted-knowledge-plane` for why this pipeline isn't run per-install.)
+**This pipeline is operated by maintainers, not by users.** It runs offline against the shared cloud Postgres, and its output is the same for everyone — every client reads the result through the Knowledge API (`knowledge-api.md`) rather than building it locally. That is the point: metadata generation is two model calls per card across ~33,000 cards, and this way every user's first deck is free of that cost. (See `lessons-learned.md#knowledge-base-from-per-user-generation-to-a-hosted-knowledge-plane` for why this pipeline isn't run per-install.)
 
 Two consequences for anyone working in here:
 
@@ -19,7 +19,7 @@ Scryfall → Card Import → Model Metadata Generation → Knowledge Document Ge
 | Stage                         | Module                                     | Writes                     | Status          |
 | ----------------------------- | ------------------------------------------ | -------------------------- | --------------- |
 | Card Import                   | `knowledge_pipeline/scryfall_importer/`    | `cards`, `import_runs`     | **implemented** |
-| Metadata Generation           | `knowledge_pipeline/metadata_generator/`   | `card_metadata`            | **implemented, single-tier** |
+| Metadata Generation           | `knowledge_pipeline/metadata_generator/`   | `card_metadata`            | **implemented, single-tier, two calls per card** |
 | Knowledge Document Generation | `knowledge_pipeline/document_generator.py` | `card_documents.document`  | stub            |
 | Embeddings                    | `knowledge_pipeline/embeddings.py`         | `card_documents.embedding` | stub            |
 
@@ -35,7 +35,41 @@ python -m knowledge_pipeline.metadata_generator --dry-run --limit 20  # smoke-te
 python -m knowledge_pipeline.metadata_generator --format all       # ignore legality entirely
 ```
 
-**Single-tier today, not the tiered design end state.** `benchmarking-and-testing.md` specifies a 300-card benchmark that decides *whether* a local model is viable at all and, if so, where the local/frontier escalation line falls — that benchmark hasn't run. Until it does, every card routes through one backend: the frontier Anthropic model, called through `AnthropicMetadataBackend` (`knowledge_pipeline/metadata_generator/model_backend.py`). `MetadataModelBackend` is a small protocol, deliberately **not** the client-facing `ModelProvider` (`model-providers.md`) — see `benchmarking-and-testing.md#models-under-test` for why those are different interfaces — so a local-model tier can be added there later without this module changing.
+#### Two calls per card
+
+Each card takes two model calls, split on `CardMetadataBlueprint`'s existing field order:
+
+| | Produces | System block | User message |
+|---|---|---|---|
+| Pass one | `MetadataPassOne` — `mechanics` → `game_stage`, including `primary_role` | `build_pass_one_system_prompt()`: rubric + closed taxonomy, **no anchors** (~4,200 chars) | the card (`render_card_facts`) |
+| Pass two | `MetadataPassTwo` — `power_rating`, `summary` | `build_pass_two_system_prompt()`: how to read a ladder (~1,600 chars) | the card, pass one's answers, and **only the ladders for the roles/themes pass one assigned** (`render_rating_request`) |
+
+`CardMetadataBlueprint.from_passes` merges the two, and a card is written only when both succeed — `sink.upsert_batches` refreshes every column, so a pass-one-only row would be real tags with no rating, which the staleness check would then treat as done.
+
+**Why.** The single call it replaced rendered all 66 ladders into every system block: ~14,000 tokens of calibration against a ~300-token card, of which 1–4 ladders were ever relevant. Across benchmark session S-001 (30 hard cards × two local tiers) it flattened `power_rating` to a 7.07 / 7.13 mean with nothing below 4. The cut falls where it does because everything needed to *choose* a ladder — `roles` and `themes` — is decided by the end of pass one. `lessons-learned.md` has the A/B and the part of the problem this did **not** fix.
+
+Three things to know before changing it:
+
+- **The per-card ladders go in pass two's *user* message, not its system block.** Both system blocks stay fixed strings, built once per run. A system block that varied per card would miss Anthropic's prompt cache on every call and break llama.cpp's KV-prefix reuse, which is what collapses local prefill from ~35 s to ~0.2 s (`benchmarking-and-testing.md`).
+- **At most three ladders, ordered `primary_role` → other roles → themes** (`prompt.MAX_LADDERS_PER_CARD`, `schema.MetadataPassOne.ladder_tags`, `anchors.ladders_for`). A card with four roles and three themes would otherwise be shown ~6,000 tokens of ladders — most of the way back to the problem. Because the cap bites, the order is what decides which three a card is calibrated against; `ladder_tags` owns that order and `ladders_for` only preserves it. A card matching none is shown none and told so, rather than falling back to all 66. See `data-model.md#which-ladder-a-card-is-shown` for why the primary role leads and what measuring it found.
+- **`build_system_prompt()` is frozen, not dead.** It still renders the old single-call prompt, byte-identical, because `benchmark/runner.py` records and fingerprints it and it is how the pre-split baseline is reproduced. Nothing in `pipeline.py` calls it. Delete it when the harness generates in two passes too.
+
+**Single-tier today, not the tiered design end state.** `benchmarking-and-testing.md` specifies a 300-card benchmark that decides *whether* a local model is viable at all and, if so, where the local/frontier escalation line falls — that benchmark's harness is now built but its full run, and the hand-labeling it would be scored against, are not. Until they are, every card routes through one backend: the frontier Anthropic model, called through `AnthropicMetadataBackend` (`knowledge_pipeline/metadata_generator/model_backend.py`). `MetadataModelBackend` is a small protocol, deliberately **not** the client-facing `ModelProvider` (`model-providers.md`) — see `benchmarking-and-testing.md#models-under-test` for why those are different interfaces.
+
+A second implementation of that protocol now exists — `OllamaMetadataBackend` (`ollama_backend.py`), the local tier the benchmark measures — and the seam held: adding it changed nothing in `pipeline.py`. **Nothing routes to it.** `generate_metadata`'s default backend is still Anthropic, and only `benchmark/runner.py` constructs the Ollama one. Two notes if you touch it:
+
+- It has **no settings and no env var.** Every knob is a constructor argument, and the benchmark CLI passes flags over module-constant defaults. A `KnowledgeSettings` field would configure something the pipeline does not use; that field arrives with the change that actually routes production locally.
+- `AnthropicMetadataBackend.__init__` raising on an empty `METADATA_MODEL_API_KEY` must stay **inside** that backend. Hoisting the check to `pipeline.py` or the runner would require a key to use a local model that needs none — which is precisely the `MODEL_API_KEY` bug `lessons-learned.md` records, re-made on the knowledge side.
+
+The protocol also gained a sibling, `ObservableMetadataBackend`, which adds `generate_observed` returning a `GenerationAttempt` — raw text, token counts, latency, and crucially a result rather than an exception when output fails to validate. `pipeline.py` neither needs nor uses it; the benchmark does, because `generate` raises the unparseable response away and "how often is output valid at all" is one of the metrics. `MetadataModelBackend` was left untouched.
+
+#### Five themes the model is never asked about
+
+Five `Theme` members — Treasure, Food, Clues, Energy, and Infect — are decidable straight off a `Card`'s own `oracle_text`/`keywords`: the three token themes and Energy from a regex on "create a `___` token" / the `{E}` symbol, Infect from a `keywords` lookup. `knowledge_pipeline/derived_tags.py` computes them; `schema.DERIVED_THEMES` names them.
+
+They are still real `Theme` members — the column, the anchor ladder, and `anchors.ladders_for` all treat them exactly like any other theme. What changes is who asks: `prompt.build_pass_one_system_prompt` drops them from pass one's "Valid `themes` values" listing (and tells the model so, in the rubric), and `pipeline.py` merges `derive_themes`'s output into the card's themes right after pass one returns, via `MetadataPassOne.with_derived_themes` — before `ladder_tags` picks pass two's ladders and before the row is written. A card that creates a Treasure is still rated against the Treasure ladder; the model was simply never asked to notice the Treasure.
+
+The point isn't the token savings. A closed vocabulary only helps if every live member is actually a judgment call — a tag the model never has to weigh is a tag it cannot mis-apply, and removing five mechanical lookups from the menu leaves more of the model's attention on the ones that genuinely require reading the whole card (Aristocrats, Voltron, and the like). `build_system_prompt()`'s frozen one-pass baseline is untouched by this — it still renders and asks about all 66 — because that prompt exists to stay byte-identical for the benchmark, not to reflect current practice.
 
 Module layout (`knowledge_pipeline/metadata_generator/`, mirroring `scryfall_importer/`'s package shape):
 
@@ -43,11 +77,18 @@ Module layout (`knowledge_pipeline/metadata_generator/`, mirroring `scryfall_imp
 |---|---|
 | `__main__.py` | CLI: arg parsing, `python -m knowledge_pipeline.metadata_generator` |
 | `pipeline.py` | orchestration, the needs-metadata query, batched writes |
-| `prompt.py` | builds the cached system block (rubric + closed taxonomy + anchors) and the per-card user message |
-| `anchors.py` | the anchor-card registry (`data-model.md#anchor-cards`) — **populated: one five-rung ladder for each of the 51 `Role`/`Theme` members, 255 distinct cards**, rendered into the cached system block. `generate_metadata` logs a warning rather than refusing to run if a tag is unanchored, which is what keeps the pipeline testable with a trimmed registry |
-| `model_backend.py` | `MetadataModelBackend` protocol + `AnthropicMetadataBackend` |
-| `schema.py` | `CardMetadataBlueprint` and the closed `Role`/`Theme`/`SynergyTag` vocabulary — the shape a generation call must produce |
+| `prompt.py` | builds both passes' system blocks and both user messages — plus `build_system_prompt()`, the frozen one-pass baseline the benchmark still measures |
+| `anchors.py` | the anchor-card registry (`data-model.md#anchor-cards`) — **populated: one five-rung ladder for each of the 66 `Role`/`Theme` members, 330 distinct cards**. `ladders_for` selects a card's own ladders by exact registry lookup and `render_ladders` renders that subset into pass two's user message. `generate_metadata` logs a warning rather than refusing to run if a tag is unanchored, which is what keeps the pipeline testable with a trimmed registry |
+| `model_backend.py` | the `MetadataModelBackend` protocol, its observable sibling `ObservableMetadataBackend` + `GenerationAttempt`, and `AnthropicMetadataBackend` |
+| `ollama_backend.py` | `OllamaMetadataBackend` — the local tier, for the benchmark only; nothing in the pipeline routes to it. Owns the `num_ctx` preflight that stops a truncated system prompt (`benchmarking-and-testing.md`) |
+| `schema.py` | `MetadataPassOne` / `MetadataPassTwo` / `CardMetadataBlueprint` and the closed `Role`/`Theme`/`SynergyTag` vocabulary — the shapes generation must produce, **in the order it must produce them**: `mechanics` first, so the model restates the card before it judges it. The blueprint inherits pass one's seven fields rather than restating them, which is what keeps the finished order fixed |
 | `sink.py` | batched `INSERT ... ON CONFLICT DO UPDATE` into `card_metadata`, mirroring `scryfall_importer/sink.py` |
+
+**`mechanics` is generated first, and that is a property of the schema, not the prompt.** `MetadataPassOne` declares `mechanics` — a literal restatement of the card's rules text — ahead of every judgment field, because both backends decode against that schema and emit properties in declaration order: the Anthropic SDK builds the schema from the class, Ollama compiles it into a decoding grammar. So pass one writes what the card *says* before it decides what the card *is*, and pass two cannot revise either. Reordering the class silently removes that step while leaving the field in place, which is why `tests/test_metadata_schema.py` asserts the full nine-field order and `prompt.py`'s pass-one rubric opens with the matching instruction. Full rationale: `data-model.md#mechanics-the-model-reads-before-it-judges`.
+
+**The closed-vocabulary lists are bounded (`max_length`) and deduplicated, and both guards are about decoding rather than modelling.** A `list[enum]` with no ceiling becomes a grammar with no reason to ever close the array: on a real card, with the anchor block gone from the prompt, the 7B emitted `"Big Mana", "Lands Matter", "Big Mana", …` until it hit `num_predict` and the whole card failed to parse. `maxItems` makes the grammar forbid that; the dedupe validator cleans up what a shorter loop leaves behind, keeping first-seen order because `ladder_tags` reads it.
+
+`roles` and `themes` are capped at **5** (`schema.MAX_TAGS_PER_CARD`), down from the 8 they were first set at. Eight was picked to bound garbage without ever truncating a real answer, and it was too loose to do the first job: the 14B emitted a full eight roles for one modal Equipment and never hit the ceiling. Tightening it to 5 did more than clip the tail — on the same card the 14B's role count fell to 3, because the ceiling is a grammar constraint the model decodes under rather than a filter applied afterwards. `strengths`/`weaknesses` keep 8 and `synergy_tags` keeps 12; the rubric asks the model to be exhaustive about hooks and selective about judgments, and the ceilings follow that. See `lessons-learned.md`.
 
 Two decisions worth knowing about:
 
@@ -103,7 +144,7 @@ One rule decides what gets imported: **is this object a card?** If so it lands, 
 
 Breadth is paid once, centrally, by us, and three arguments support keeping the import unscoped:
 
-- **Filtering costs more than it saves.** Commander-legal cards are 91% of the card objects in the file. The expensive stages are `metadata_generator/` (one model call per card) and `embeddings.py`; that is where a format filter belongs, and applying it there needs no re-import.
+- **Filtering costs more than it saves.** Commander-legal cards are 91% of the card objects in the file. The expensive stages are `metadata_generator/` (two model calls per card) and `embeddings.py`; that is where a format filter belongs, and applying it there needs no re-import.
 - **A collection is not a legal deck.** CSV import resolves *owned* card names through the Knowledge API. 1,945 paper-printed cards are legal in no format at all, 1,244 of them Un-set cards. Excluding them would turn each into a permanent placeholder in somebody's collection, in an app that is explicitly proxy-friendly.
 - **Format belongs to the client.** Deck building filters on `Card.legalities`, which every row carries whole, so a future Brawl or Oathbreaker mode is a client-side predicate rather than a re-import every user waits on.
 
@@ -133,7 +174,7 @@ The corpus holds all of it. The counts below come from the imported 2026-09-20 s
 | `legal:standard` | 4,887 |
 | legal in no format at all | 2,079 |
 
-Commander is 91% of what's imported, which is exactly why scoping the *import* to it wasn't worth the cost. Where pool size does bite is `metadata_generator/` (one model call per card) and `embeddings.py`, both proportional to whatever pool is selected *at that stage* — and those 2,079 never-legal cards are the obvious first thing to exclude there.
+Commander is 91% of what's imported, which is exactly why scoping the *import* to it wasn't worth the cost. Where pool size does bite is `metadata_generator/` (two model calls per card) and `embeddings.py`, both proportional to whatever pool is selected *at that stage* — and those 2,079 never-legal cards are the obvious first thing to exclude there.
 
 ### Re-running is safe
 

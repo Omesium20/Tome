@@ -4,6 +4,17 @@ See docs/architecture.md#knowledge-pipeline (step 2), docs/data-model.md#cardmet
 and docs/knowledge-pipeline.md#metadata-generation for how this stage fits the
 rest of the pipeline.
 
+**Two calls per card, not one.** Pass one produces `MetadataPassOne`
+(`mechanics` … `game_stage`) against a prompt with no anchor ladders in it;
+pass two produces `MetadataPassTwo` (`power_rating`, `summary`) against the
+ladders for the roles and themes pass one actually assigned. The single call
+they replaced carried all 66 ladders every time — ~14,000 tokens of
+calibration against a ~300-token card — and the dilution flattened
+`power_rating` into a band around 7 with nothing below 4 across benchmark
+session S-001 (`docs/lessons-learned.md`). A card is written only when both
+passes succeed; `CardMetadataBlueprint` is still the one shape that reaches
+the database.
+
 **Single-tier today.** `docs/benchmarking-and-testing.md` specifies a 300-card
 benchmark that decides *whether* a local model tier is viable and, if so,
 where the local/frontier escalation line falls — and that benchmark hasn't
@@ -25,11 +36,23 @@ from config import KnowledgeSettings, get_knowledge_settings
 from database.knowledge.models import Card, CardMetadata
 from database.knowledge.session import new_session
 
+from ..derived_tags import derive_themes
 from . import sink
 from .anchors import ANCHORS
 from .model_backend import AnthropicMetadataBackend, MetadataGenerationError, MetadataModelBackend
-from .prompt import build_system_prompt, render_card_facts
-from .schema import utcnow
+from .prompt import (
+    build_pass_one_system_prompt,
+    build_pass_two_system_prompt,
+    render_card_facts,
+    render_rating_request,
+)
+from .schema import (
+    CardMetadataBlueprint,
+    MetadataPassOne,
+    MetadataPassTwo,
+    Theme,
+    utcnow,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +65,12 @@ class MetadataReport:
     cards_generated: int = 0
     cards_written: int = 0
     cards_failed: int = 0
+    # Which pass lost the card. Split because the two fail for different
+    # reasons and the fix differs: pass one is the long, closed-vocabulary
+    # call, pass two the short scoring one. A run where only pass two fails is
+    # a prompt or ladder problem, not a model-capacity one.
+    cards_failed_pass_one: int = 0
+    cards_failed_pass_two: int = 0
     dry_run: bool = False
     started_at: datetime = field(default_factory=utcnow)
     finished_at: datetime | None = None
@@ -59,7 +88,11 @@ class MetadataReport:
             f"{self.cards_written:,} written",
         ]
         if self.cards_failed:
-            parts.append(f"{self.cards_failed:,} failed")
+            parts.append(
+                f"{self.cards_failed:,} failed "
+                f"({self.cards_failed_pass_one:,} in pass one, "
+                f"{self.cards_failed_pass_two:,} in pass two)"
+            )
         parts.append(f"{self.elapsed_seconds:.1f}s")
         return ", ".join(parts)
 
@@ -132,7 +165,8 @@ def generate_metadata(
 
     Args:
         dry_run: Call the model and validate its output, but write nothing.
-            Still spends real API calls — use `limit` alongside it to bound cost.
+            Still spends real API calls — **two per card** — so use `limit`
+            alongside it to bound cost.
         limit: Stop after this many candidate cards. For development and
             smoke-testing prompts before committing to a full run.
         format_name: Only generate for cards legal in this format, or `None`
@@ -162,7 +196,11 @@ def generate_metadata(
         model=settings.metadata_model_name,
         max_tokens=settings.metadata_model_max_tokens,
     )
-    system_prompt = build_system_prompt()
+    # Both passes' system blocks are fixed strings — the per-card anchor
+    # ladders ride in pass two's user message — so both are still built once
+    # per run and reused for every card, and both stay prompt-cacheable.
+    pass_one_system = build_pass_one_system_prompt()
+    pass_two_system = build_pass_two_system_prompt()
 
     try:
         pending_rows: list[dict] = []
@@ -172,16 +210,61 @@ def generate_metadata(
         ):
             report.cards_seen += 1
 
+            card_facts = render_card_facts(card)
+
+            # Pass one: what the card is. No anchor ladders in sight.
             try:
-                blueprint = backend.generate(
-                    system=system_prompt, prompt=render_card_facts(card)
+                pass_one = backend.generate(
+                    system=pass_one_system,
+                    prompt=card_facts,
+                    output_model=MetadataPassOne,
                 )
             except MetadataGenerationError:
                 logger.exception(
-                    "Metadata generation failed for %s (%s)", card.name, card.oracle_id
+                    "Metadata generation failed in pass one for %s (%s)",
+                    card.name,
+                    card.oracle_id,
                 )
                 report.cards_failed += 1
-            else:
+                report.cards_failed_pass_one += 1
+                pass_one = None
+
+            # The model was never asked about these — `derive_themes` reads
+            # them straight off the card (`schema.DERIVED_THEMES`). Merged in
+            # before pass two so its ladder selection sees them too.
+            if pass_one is not None:
+                derived = [Theme(value) for value in derive_themes(card)]
+                if derived:
+                    pass_one = pass_one.with_derived_themes(derived)
+
+            # Pass two: how good it is, against only the ladders for the roles
+            # and themes pass one just assigned.
+            blueprint: CardMetadataBlueprint | None = None
+            if pass_one is not None:
+                try:
+                    pass_two = backend.generate(
+                        system=pass_two_system,
+                        prompt=render_rating_request(
+                            card_facts=card_facts, pass_one=pass_one
+                        ),
+                        output_model=MetadataPassTwo,
+                    )
+                except MetadataGenerationError:
+                    logger.exception(
+                        "Metadata generation failed in pass two for %s (%s)",
+                        card.name,
+                        card.oracle_id,
+                    )
+                    report.cards_failed += 1
+                    report.cards_failed_pass_two += 1
+                else:
+                    blueprint = CardMetadataBlueprint.from_passes(pass_one, pass_two)
+
+            # One row per card, written only once both passes are in — a
+            # half-generated card is a failed card, not a row with a missing
+            # rating. `sink.upsert_batches` refreshes every column, so a
+            # partial write would blank what the other pass produced.
+            if blueprint is not None:
                 report.cards_generated += 1
                 if not dry_run:
                     pending_rows.append(blueprint.to_card_metadata_row(card.oracle_id))

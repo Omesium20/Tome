@@ -14,13 +14,17 @@ populating a tag would silently change what `build_system_prompt()` returns
 for every test after it, in this file and in the rest of the suite.
 """
 
+from collections import Counter
+
 import pytest
 
 from knowledge_pipeline.metadata_generator import anchors
 from knowledge_pipeline.metadata_generator.anchors import (
     BAND_ORDER,
+    GAME_STAGE_ANCHORS,
     AnchorCard,
     AnchorLadder,
+    GameStageAnchor,
     PowerBand,
     anchor_key,
     kind_of,
@@ -28,8 +32,12 @@ from knowledge_pipeline.metadata_generator.anchors import (
     missing_tags,
     register,
     render_anchors,
+    render_game_stage_anchors,
 )
-from knowledge_pipeline.metadata_generator.prompt import build_system_prompt
+from knowledge_pipeline.metadata_generator.prompt import (
+    build_pass_one_system_prompt,
+    build_system_prompt,
+)
 from knowledge_pipeline.metadata_generator.schema import Role, SynergyTag, Theme
 
 # What the module shipped with, captured before any test can touch it. The
@@ -66,7 +74,7 @@ def rung(band: PowerBand, name: str = "", note: str = "") -> AnchorCard:
     )
 
 
-def ladder(tag: Role | Theme = Role.RAMP, bands=BAND_ORDER) -> AnchorLadder:
+def ladder(tag: Role | Theme = Role.MANA_FIXING, bands=BAND_ORDER) -> AnchorLadder:
     """A complete, valid ladder for `tag` (or a deliberately broken one)."""
     return AnchorLadder(tag=tag, rungs=[rung(band) for band in bands])
 
@@ -209,7 +217,7 @@ def test_a_duplicate_band_is_rejected():
     rungs = [rung(band) for band in BAND_ORDER]
     rungs.append(rung(PowerBand.B5_6, name="Second 5-6 Card"))
     with pytest.raises(ValueError, match="same power band"):
-        AnchorLadder(tag=Role.RAMP, rungs=rungs)
+        AnchorLadder(tag=Role.MANA_FIXING, rungs=rungs)
 
 
 def test_a_duplicate_band_standing_in_for_a_missing_one_is_rejected():
@@ -223,7 +231,7 @@ def test_a_duplicate_band_standing_in_for_a_missing_one_is_rejected():
         rung(PowerBand.B9_10, name="Another 9-10 Card"),
     ]
     with pytest.raises(ValueError, match="same power band"):
-        AnchorLadder(tag=Role.RAMP, rungs=rungs)
+        AnchorLadder(tag=Role.MANA_FIXING, rungs=rungs)
 
 
 @pytest.mark.parametrize(
@@ -237,12 +245,12 @@ def test_an_incomplete_ladder_is_rejected(missing):
     make the guess look calibrated."""
     bands = [band for band in BAND_ORDER if band is not missing]
     with pytest.raises(ValueError, match="is missing the"):
-        ladder(Role.RAMP, bands=bands)
+        ladder(Role.MANA_FIXING, bands=bands)
 
 
 def test_a_ladder_with_no_rungs_at_all_is_rejected():
     with pytest.raises(ValueError, match="is missing the"):
-        AnchorLadder(tag=Role.RAMP, rungs=[])
+        AnchorLadder(tag=Role.MANA_FIXING, rungs=[])
 
 
 def test_the_error_names_every_band_that_is_missing():
@@ -256,7 +264,7 @@ def test_the_error_names_every_band_that_is_missing():
 
 def test_render_emits_all_five_rungs_in_ascending_order():
     built = AnchorLadder(
-        tag=Role.RAMP,
+        tag=Role.MANA_FIXING,
         rungs=[
             AnchorCard(PowerBand.B9_10, "Top Card", 9, "Format-defining ramp."),
             AnchorCard(PowerBand.B1_2, "Bottom Card", 1, "Barely ramp at all."),
@@ -267,7 +275,7 @@ def test_render_emits_all_five_rungs_in_ascending_order():
     )
     rendered = built.render()
 
-    assert rendered.startswith(f"{Role.RAMP.value} (role):")
+    assert rendered.startswith(f"{Role.MANA_FIXING.value} (role):")
     positions = [
         rendered.index(name)
         for name in ("Bottom Card", "Low Card", "Middle Card", "High Card", "Top Card")
@@ -290,7 +298,7 @@ def test_render_anchors_is_empty_when_the_registry_is_empty(anchors_registry):
 
 
 def test_render_anchors_includes_the_calibration_instructions(anchors_registry):
-    register(ladder(Role.RAMP))
+    register(ladder(Role.MANA_FIXING))
     rendered = render_anchors()
 
     assert "Calibration ladders" in rendered
@@ -299,22 +307,22 @@ def test_render_anchors_includes_the_calibration_instructions(anchors_registry):
 
 
 def test_render_anchors_includes_every_populated_tag(anchors_registry):
-    register(ladder(Role.RAMP))
+    register(ladder(Role.MANA_FIXING))
     register(ladder(Theme.TOKENS))
     register(ladder(Role.REMOVAL))
     rendered = render_anchors()
 
-    for tag in (Role.RAMP, Theme.TOKENS, Role.REMOVAL):
+    for tag in (Role.MANA_FIXING, Theme.TOKENS, Role.REMOVAL):
         assert f"{tag.value} ({kind_of(tag)}):" in rendered
     # Every rung of every ladder, not just the tag headers.
     assert rendered.count("Card 9-10") == 3
 
 
 def test_render_anchors_omits_tags_that_have_no_ladder(anchors_registry):
-    register(ladder(Role.RAMP))
+    register(ladder(Role.MANA_FIXING))
     rendered = render_anchors()
 
-    assert f"{Role.RAMP.value} (role):" in rendered
+    assert f"{Role.MANA_FIXING.value} (role):" in rendered
     assert f"{Theme.VOLTRON.value}:" not in rendered
 
 
@@ -335,12 +343,12 @@ def test_missing_tags_does_not_include_synergy_tags(anchors_registry):
 
 
 def test_missing_tags_omits_a_tag_once_it_has_a_ladder(anchors_registry):
-    register(ladder(Role.RAMP))
+    register(ladder(Role.MANA_FIXING))
     register(ladder(Theme.TOKENS))
 
     missing = missing_tags()
 
-    assert Role.RAMP not in missing
+    assert Role.MANA_FIXING not in missing
     assert Theme.TOKENS not in missing
     assert Role.REMOVAL in missing
     assert len(missing) == len(Role) + len(Theme) - 2
@@ -357,11 +365,11 @@ def test_the_system_prompt_omits_the_anchor_block_when_the_registry_is_empty(
     assert "Calibration ladders" not in prompt
     # The rest of the cached block is still there.
     assert "Valid `roles` values:" in prompt
-    assert Role.RAMP.value in prompt
+    assert Role.MANA_FIXING.value in prompt
 
 
 def test_the_system_prompt_includes_the_anchor_block_when_populated(anchors_registry):
-    register(ladder(Role.RAMP))
+    register(ladder(Role.MANA_FIXING))
     prompt = build_system_prompt()
 
     assert "Calibration ladders" in prompt
@@ -424,83 +432,139 @@ def test_the_registry_is_left_exactly_as_it_shipped():
     assert anchors.ANCHORS == SHIPPED_ANCHORS
 
 
-# -------------------------------------------- Role/Theme key collision ---
-#
-# `Role` and `Theme` are StrEnums, so a member *is* its string value:
-# `Role.LIFEGAIN == Theme.LIFEGAIN` is True and the two hash identically.
-# Both vocabularies define "Lifegain" and "Equipment". Keyed on the member,
-# `ANCHORS` collapsed each pair into one entry — two of 52 ladders vanished
-# with nothing raised, and `missing_tags()` was blind to it because it
-# compared with the same broken equality. These guard the fix.
-
-
-COLLIDING_TAGS = [
-    (Role.LIFEGAIN, Theme.LIFEGAIN),
-    (Role.EQUIPMENT, Theme.EQUIPMENT),
-]
-
-
-@pytest.mark.parametrize("role_tag, theme_tag", COLLIDING_TAGS, ids=lambda t: t.name)
-def test_colliding_role_and_theme_are_equal_as_enum_members(role_tag, theme_tag):
-    """The premise of the bug, asserted so the fix isn't mysterious later."""
-    assert role_tag == theme_tag
-    assert hash(role_tag) == hash(theme_tag)
-
-
-@pytest.mark.parametrize("role_tag, theme_tag", COLLIDING_TAGS, ids=lambda t: t.name)
-def test_anchor_key_separates_a_role_from_a_theme_of_the_same_name(role_tag, theme_tag):
-    assert anchor_key(role_tag) != anchor_key(theme_tag)
-    assert anchor_key(role_tag).startswith("Role.")
-    assert anchor_key(theme_tag).startswith("Theme.")
-
-
-@pytest.mark.parametrize("role_tag, theme_tag", COLLIDING_TAGS, ids=lambda t: t.name)
-def test_both_halves_of_a_name_collision_register_and_survive(
-    anchors_registry, role_tag, theme_tag
-):
-    """The regression itself: registering both must keep both."""
-    register(ladder(role_tag))
-    register(ladder(theme_tag))
-
-    assert len(anchors_registry) == 2
-    assert ladder_for(role_tag) is not None
-    assert ladder_for(theme_tag) is not None
-    assert ladder_for(role_tag).tag is role_tag
-    assert ladder_for(theme_tag).tag is theme_tag
-
-
-@pytest.mark.parametrize("role_tag, theme_tag", COLLIDING_TAGS, ids=lambda t: t.name)
-def test_missing_tags_still_reports_the_unregistered_half(
-    anchors_registry, role_tag, theme_tag
-):
-    """Anchoring the role must not make the same-named theme look anchored."""
-    register(ladder(role_tag))
-    outstanding = missing_tags()
-
-    assert role_tag not in [t for t in outstanding if isinstance(t, Role)]
-    assert theme_tag in [t for t in outstanding if isinstance(t, Theme)]
-
-
-@pytest.mark.parametrize("role_tag, theme_tag", COLLIDING_TAGS, ids=lambda t: t.name)
-def test_rendered_prompt_distinguishes_the_two_blocks(
-    anchors_registry, role_tag, theme_tag
-):
-    """Two blocks headed `Lifegain:` would be ambiguous in the prompt itself,
-    not only in the registry — the heading carries the kind for that reason."""
-    register(ladder(role_tag))
-    register(ladder(theme_tag))
-    rendered = render_anchors()
-
-    assert f"{role_tag.value} (role):" in rendered
-    assert f"{theme_tag.value} (theme):" in rendered
+# `anchor_key` still qualifies by enum class name rather than the member
+# itself (`Role` and `Theme` are StrEnums, so two same-named members with the
+# same value would otherwise be `==` and hash identically — see `anchor_key`'s
+# own docstring in anchors.py). The vocabulary no longer has a live colliding
+# pair to regression-test against: both historical collisions are gone
+# (`Role.LIFEGAIN`'s value was changed to "Lifegain Source", and
+# `Role.EQUIPMENT` was dropped entirely — `schema.py`'s module docstring).
+# The dedicated collision tests that used to live here were removed rather
+# than rebuilt against a synthetic pair; `anchor_key`'s qualify-by-name
+# behavior is still exercised incidentally by every other test in this file
+# that registers both a `Role` and a `Theme` ladder in the same registry.
 
 
 def test_registering_one_tag_twice_raises(anchors_registry):
-    register(ladder(Role.RAMP))
+    register(ladder(Role.MANA_FIXING))
     with pytest.raises(ValueError, match="already has a ladder"):
-        register(ladder(Role.RAMP))
+        register(ladder(Role.MANA_FIXING))
 
 
 def test_kind_of_reports_the_vocabulary_a_tag_belongs_to():
     assert kind_of(Role.LIFEGAIN) == "role"
     assert kind_of(Theme.LIFEGAIN) == "theme"
+
+
+# ---------------------------------------------------------------------------
+# The game stage profiles.
+#
+# A separate set from the ladders, with separate rules. The whole-set rules
+# above ("no card at two different ratings", "no card in two ladders") are
+# about the *power* scale and deliberately do not apply here: timing and power
+# are different fields, so a card can be a `power_rating` rung and a
+# `game_stage` profile without stating anything contradictory. Four of them
+# are. What matters instead is that the set spans the scale and does not
+# itself teach the curve-shape bias it exists to correct.
+# ---------------------------------------------------------------------------
+
+
+def _shape(anchor):
+    early, mid, late = anchor.profile
+    if early == mid == late:
+        return "flat"
+    if early <= mid <= late:
+        return "rising"
+    if early >= mid >= late:
+        return "falling"
+    if mid >= early and mid >= late:
+        return "peaked"
+    return "dipped"
+
+
+def test_game_stage_anchors_are_populated():
+    assert len(GAME_STAGE_ANCHORS) >= 10
+
+
+def test_no_card_appears_twice_in_the_game_stage_set():
+    names = [anchor.name for anchor in GAME_STAGE_ANCHORS]
+    assert len(names) == len(set(names))
+
+
+@pytest.mark.parametrize("axis", ["early", "mid", "late"])
+def test_each_axis_spans_the_scale(axis):
+    """A set clustered in the middle teaches the clustering it should break.
+
+    Not an assertion that some card scores exactly 1 and some exactly 10 —
+    that would be a rule about the cards rather than about the calibration.
+    Reaching into both outer thirds is what makes the scale legible.
+    """
+    values = [getattr(anchor, axis) for anchor in GAME_STAGE_ANCHORS]
+    assert min(values) <= 3, f"nothing anchors the low end of {axis}"
+    assert max(values) >= 8, f"nothing anchors the high end of {axis}"
+
+
+def test_curve_shapes_are_not_all_rising():
+    """The bias the set exists to correct, applied to the set itself.
+
+    On S-001 half of all generated profiles were non-decreasing and one in
+    sixty was flat. A draft of this set was nine rising out of thirteen,
+    which would have demonstrated exactly that habit rather than breaking it.
+    """
+    shapes = Counter(_shape(anchor) for anchor in GAME_STAGE_ANCHORS)
+    total = len(GAME_STAGE_ANCHORS)
+    assert shapes["rising"] <= total / 2, (
+        f"{shapes['rising']}/{total} profiles rise; the set would teach the "
+        "monotonic ramp it is meant to correct"
+    )
+    assert shapes["falling"] >= 3, "too few cards that fall off"
+    assert shapes["flat"] >= 1, "no card that is simply always worth the same"
+
+
+def test_every_profile_explains_its_shape():
+    for anchor in GAME_STAGE_ANCHORS:
+        assert anchor.note.strip(), anchor.name
+        assert len(anchor.note) > 40, (
+            f"{anchor.name}'s note is too short to say why the curve bends"
+        )
+
+
+@pytest.mark.parametrize("axis", ["early", "mid", "late"])
+def test_a_score_outside_the_scale_raises(axis):
+    kwargs = {"name": "Test", "early": 5, "mid": 5, "late": 5, "note": "x" * 50}
+    kwargs[axis] = 11
+    with pytest.raises(ValueError, match="outside the 1-10 scale"):
+        GameStageAnchor(**kwargs)
+
+
+def test_a_profile_without_a_note_raises():
+    with pytest.raises(ValueError, match="needs a note"):
+        GameStageAnchor(name="Test", early=5, mid=5, late=5, note="  ")
+
+
+def test_rendered_block_names_every_profile_and_its_numbers():
+    block = render_game_stage_anchors()
+    for anchor in GAME_STAGE_ANCHORS:
+        assert anchor.name in block
+        assert anchor.note in block
+
+
+def test_game_stage_anchors_reach_pass_one_but_not_the_frozen_prompt():
+    """Pass one carries them; the frozen one-pass baseline must not change.
+
+    `build_system_prompt` is fingerprinted by `benchmark/runner.py` and is how
+    S-001's numbers stay reproducible, so a new calibration block belongs in
+    the live prompt only.
+    """
+    assert "Game stage calibration" in build_pass_one_system_prompt()
+    assert "Game stage calibration" not in build_system_prompt()
+
+
+def test_pass_one_still_carries_no_power_ladders():
+    """The split's actual invariant, re-checked now that pass one has anchors.
+
+    Adding ~630 tokens of timing profiles must not become an excuse to let
+    the ~14,000 tokens of power ladders back in.
+    """
+    prompt = build_pass_one_system_prompt()
+    assert "Calibration ladders" not in prompt

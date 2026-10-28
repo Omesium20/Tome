@@ -49,6 +49,7 @@ def make_row(oracle_id: str, name: str = "Test Card", **overrides) -> CardRow:
 def make_metadata(card_id: str) -> CardMetadata:
     return CardMetadata(
         card_id=card_id,
+        mechanics="Tap it to add one mana.",
         summary="A card.",
         roles=["ramp"],
         themes=["counters"],
