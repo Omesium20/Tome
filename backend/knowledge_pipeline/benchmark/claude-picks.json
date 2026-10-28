@@ -1,0 +1,305 @@
+{
+ "session_id": "S-001",
+ "picks": [
+  {
+   "card_oracle_id": "ddf461b9-a205-4dc7-a9c3-c047b1ff709f",
+   "card_name": "Aang's Journey",
+   "winner": "local_high",
+   "runs": {
+    "local_high": 31,
+    "local_low": 1
+   },
+   "notes": "7B rates a 2-mana Lay of the Land at power 7 and tags Mana Doubler + Graveyard Fill; 14B gets power 5 and a correct early>mid>late decay. Both hallucinate tags, both call a land-to-hand effect Card Draw."
+  },
+  {
+   "card_oracle_id": "c3974ec7-7af0-4b65-baf6-4c1c4fe8a5c4",
+   "card_name": "Ajani, Strength of the Pride",
+   "winner": "local_high",
+   "runs": {
+    "local_high": 32,
+    "local_low": 2
+   },
+   "notes": "14B uniquely names Win Condition -- the 0 ability is a one-sided wipe -- plus Superfriends and a correct power 8. 7B's only win is Counters Matter (the Pridemate), but it calls a lifegain payoff 'Control' and misses the wincon entirely."
+  },
+  {
+   "card_oracle_id": "635fe908-6f58-4c9e-ac55-0775a7c6f278",
+   "card_name": "Angel of Vitality",
+   "winner": "local_high",
+   "runs": {
+    "local_high": 33,
+    "local_low": 3
+   },
+   "notes": "14B gets theme Lifegain (7B says Control on a lifegain card), a correct 3/5/7 ramp-up curve, and power 6 vs 7B's 7. Both invent Untap Effect."
+  },
+  {
+   "card_oracle_id": "6487fc1b-5c83-4d09-94d3-175725bcb922",
+   "card_name": "Brigid's Command",
+   "winner": "local_low",
+   "runs": {
+    "local_high": 34,
+    "local_low": 4
+   },
+   "notes": "14B invents a card-draw mode that does not exist on the card and asserts it in strengths ('draw cards through the token creation option'), plus Anthem for a single +3/+3 until end of turn. 7B's curve is also better."
+  },
+  {
+   "card_oracle_id": "ba4d644f-1931-4fc4-aed5-681a476a5a58",
+   "card_name": "Cease // Desist",
+   "winner": "local_low",
+   "runs": {
+    "local_high": 35,
+    "local_low": 5
+   },
+   "notes": "14B labels a graveyard-HATE card Reanimator and tags Graveyard Fill -- both polarity inversions -- and drops Board Wipe, which is the entire Desist half. 7B names Graveyard Hate + Board Wipe and curves it correctly."
+  },
+  {
+   "card_oracle_id": "6e412163-a93a-4738-a8f0-a4d27c960360",
+   "card_name": "Clout of the Dominus",
+   "winner": "local_high",
+   "runs": {
+    "local_high": 36,
+    "local_low": 6
+   },
+   "notes": "14B emits exactly one tag, Enchantment Matters, and it is correct -- the cleanest tag set in the run. 7B adds Color Identity Fixing and misreads the aura's direction in prose. Both miss Voltron and both overrate a 1-mana aura."
+  },
+  {
+   "card_oracle_id": "cf3234f2-09d7-4d8b-b871-3bf0fcb75b6d",
+   "card_name": "Cut Propulsion",
+   "winner": "local_high",
+   "runs": {
+    "local_high": 37,
+    "local_low": 7
+   },
+   "notes": "7B calls damage-based creature removal 'Hand Disruption' -- the single worst role error in the session -- and writes a weakness that contradicts the oracle text it was handed. 14B says Removal."
+  },
+  {
+   "card_oracle_id": "c9cd57f6-1f69-4ea1-9672-ca944759c7e8",
+   "card_name": "Desecrate Reality",
+   "winner": "both_bad",
+   "runs": {
+    "local_high": 38,
+    "local_low": 8
+   },
+   "notes": "Split failure. 14B has the roles right (Removal + Recursion, Reanimator) but scores a {7} instant early=8, mid=9, late=9. 7B has the only correct curve in the pair (2/4/6) but calls it Graveyard Hate, and its summary and strengths are verbatim oracle restatement, which the prompt forbids."
+  },
+  {
+   "card_oracle_id": "d82c77a1-2b81-415d-9f18-47e059c15e01",
+   "card_name": "Doors of Durin",
+   "winner": "local_low",
+   "runs": {
+    "local_high": 39,
+    "local_low": 9
+   },
+   "notes": "14B calls it a Token Generator and themes it Tokens -- it puts a real creature card onto the battlefield, not a token -- and scores a 5-drop early=7. 7B's 'Equipment' role is also a hard type error, but its 4/6/8 curve is right."
+  },
+  {
+   "card_oracle_id": "bbfd0de0-3558-4833-bae4-8efae44b7fff",
+   "card_name": "Dreadwing Scavenger",
+   "winner": "both_bad",
+   "runs": {
+    "local_high": 40,
+    "local_low": 10
+   },
+   "notes": "Each invents a role from a keyword: 7B reads deathtouch as Protection, 14B reads it as Removal. 14B adds Tokens on a card with no tokens. Neither names Discard, which is what looting is, and both tag Combat Damage Trigger for what is an attack trigger."
+  },
+  {
+   "card_oracle_id": "634bd800-8caa-47ae-8b70-2c66baf9a355",
+   "card_name": "Dune-Brood Nephilim",
+   "winner": "local_high",
+   "runs": {
+    "local_high": 41,
+    "local_low": 11
+   },
+   "notes": "14B's 6/7/8 correctly rises with land count; 7B peaks at mid for a card that scales into the late game. 14B also runs 2 tags vs 3 with one fewer hallucination. Both miss Sacrifice/Aristocrats on a pile of expendable tokens."
+  },
+  {
+   "card_oracle_id": "92442ca0-e49d-4fab-8d3a-83405c1b1437",
+   "card_name": "Echo Storm",
+   "winner": "local_low",
+   "runs": {
+    "local_high": 42,
+    "local_low": 12
+   },
+   "notes": "14B drops the Artifacts theme -- the card's whole point -- and adds Storm, which the card does not have and which it appears to have taken from the card's name. It also scores a 5-drop needing prior commander casts at early=7. 7B's Copy Effect + Artifact Matters is the better tag set."
+  },
+  {
+   "card_oracle_id": "94f01534-7bb3-4b1e-8f77-e84156408686",
+   "card_name": "Elvish Reclaimer",
+   "winner": "both_bad",
+   "runs": {
+    "local_high": 43,
+    "local_low": 13
+   },
+   "notes": "Neither identifies Tutor, which is the only reason this card is played (it fetches Dark Depths, not a basic). 7B adds Token Generator from nothing; 14B calls sacrificing your own land 'Land Destruction' and scores a {G} one-drop early=4."
+  },
+  {
+   "card_oracle_id": "45a8c126-5396-4736-a37e-460a50706a98",
+   "card_name": "Escape to the Wilds",
+   "winner": "local_high",
+   "runs": {
+    "local_high": 44,
+    "local_low": 14
+   },
+   "notes": "The extra land drop is Ramp and Landfall; 14B names both and 7B names neither, instead inventing Token Generator and three wrong tags. 14B's decay shape is also right. Both score a 5-drop early=8, which is why this is close rather than clear."
+  },
+  {
+   "card_oracle_id": "06f7ec6d-d70e-44d8-bf43-ae667d244ab4",
+   "card_name": "Espers to Magicite",
+   "winner": "local_high",
+   "runs": {
+    "local_high": 45,
+    "local_low": 15
+   },
+   "notes": "7B writes a weakness that contradicts the card ('limited to one opponent's graveyard' when the text says each opponent) and a strength calling it a board wipe, plus 5 tags of which 3 are invented. 14B is tighter and catches that the token loses its creature type. 14B's early=8 on graveyard hate is still wrong -- early graveyards are empty."
+  },
+  {
+   "card_oracle_id": "6fd5e591-fae8-4128-a4d3-a848c8a8ffda",
+   "card_name": "Fist of Suns",
+   "winner": "local_high",
+   "runs": {
+    "local_high": 46,
+    "local_low": 16
+   },
+   "notes": "14B: Mana Fixing, one tag, Color Identity Fixing, correct. 7B calls a non-Equipment artifact an Equipment and fabricates 'can disrupt opponents' mana costs'. 14B's power 9 is badly miscalibrated against the Mana Fixing ladder, where 9 is Chrome Mox."
+  },
+  {
+   "card_oracle_id": "d1b74fb9-8ef3-40be-bc79-45ffb4c597eb",
+   "card_name": "Hangar Scrounger",
+   "winner": "both_bad",
+   "runs": {
+    "local_high": 47,
+    "local_low": 17
+   },
+   "notes": "Both call a card that makes no tokens a Token Generator, and both miss +1/+1 Counters and Counters Matter -- Backup 1 is literally a +1/+1 counter, the most mechanically obvious hook on the card. 7B also adds Extra Combat from nothing."
+  },
+  {
+   "card_oracle_id": "060209fa-4b7d-4e08-bf8b-8759bba5641b",
+   "card_name": "Karn, Scion of Urza",
+   "winner": "local_high",
+   "runs": {
+    "local_high": 48,
+    "local_low": 18
+   },
+   "notes": "The -2 makes a Construct that scales with artifacts; 14B names Token Generator and Artifacts, 7B names neither and instead says Tutor (it is not one) and Graveyard Value (the card uses exile). 14B's power 8 is right where 7B's 9 is not."
+  },
+  {
+   "card_oracle_id": "9260ae3d-59bf-4e46-a13e-930754c3f0d2",
+   "card_name": "Kaya, Intangible Slayer",
+   "winner": "both_bad",
+   "runs": {
+    "local_high": 49,
+    "local_low": 19
+   },
+   "notes": "7B emits 'Counterspell' twice on a card with no counterspell -- a duplicate the schema does not prevent -- but curves the 7-drop correctly at 4/7/8. 14B scores that same 7-mana planeswalker early=8, the worst calibration error in the session, and omits Removal, which is the -3's actual function. Agreed with your read: the -3 is enemy removal that leaves a 1/1 Spirit behind, not a token engine."
+  },
+  {
+   "card_oracle_id": "a81fd70c-c2bc-4863-97a0-facde86f024c",
+   "card_name": "March of Burgeoning Life",
+   "winner": "both_bad",
+   "runs": {
+    "local_high": 50,
+    "local_low": 20
+   },
+   "notes": "Both miss Tutor and X Spell on a spell that costs {X}{G} and says 'search your library'. 14B at least gets Cost Reduction, which is exactly what exiling green cards does, but then calls fetching from the library 'Reanimator'. 7B offers Token Generator on a card that makes no tokens."
+  },
+  {
+   "card_oracle_id": "3c8d4999-e18b-48d8-8ed9-f2feaa38300d",
+   "card_name": "Merciless Eviction",
+   "winner": "local_low",
+   "runs": {
+    "local_high": 51,
+    "local_low": 21
+   },
+   "notes": "14B themes it Artifacts, Tokens, Enchantress and Superfriends -- four wrong themes in a row, all from one inversion: confusing what the card destroys with what the card supports. It also scores a 6-mana sorcery early=8. 7B's single Board Wipe role and 3/5/7 curve are right."
+  },
+  {
+   "card_oracle_id": "42b9d383-3fe2-4fc8-ab86-f80a288d502b",
+   "card_name": "Murmuring Bosk",
+   "winner": "local_high",
+   "runs": {
+    "local_high": 52,
+    "local_low": 22
+   },
+   "notes": "Disagreeing with your local_low here. 7B says the land 'provides colorless mana' (it makes G/W/B), calls it Hand Disruption, and claims the self-damage disrupts the opponent -- three factual errors, plus power 7 for a painland. 14B gives one correct role and power 5. 7B's only edge is the Color Identity Fixing tag and a better early score. Both miss Tribal on a Treefolk land."
+  },
+  {
+   "card_oracle_id": "ec7699e3-ce56-46e4-9e4d-5ed2bd5fca83",
+   "card_name": "Null Elemental Blast",
+   "winner": "local_low",
+   "runs": {
+    "local_high": 53,
+    "local_low": 23
+   },
+   "notes": "7B names both modes, Counterspell and Removal; 14B drops Counterspell on a card whose first line is 'Counter target multicolored spell'. Both fall into the same homonym trap and tag Counters Matter, which in this vocabulary means +1/+1 counters."
+  },
+  {
+   "card_oracle_id": "66953dfd-d908-41d3-abb4-309c6a165dc3",
+   "card_name": "Psychic Theft",
+   "winner": "local_high",
+   "runs": {
+    "local_high": 54,
+    "local_low": 24
+   },
+   "notes": "14B gets Spellslinger, which is the retrieval-relevant theme, where 7B says Discard on a card that discards nothing. 14B loses points for claiming you cast the stolen card for free -- you pay its cost -- but that error lives in prose, not in a field anything queries."
+  },
+  {
+   "card_oracle_id": "6fd44fb9-3433-4cb0-95a4-4ac8170b2166",
+   "card_name": "S.H.I.E.L.D. Spy Kit",
+   "winner": "local_high",
+   "runs": {
+    "local_high": 55,
+    "local_low": 25
+   },
+   "notes": "14B's 7/6/5 is right for a one-mana Equipment; 7B scores it 4/5/4 and then writes that it provides no early value. Both correctly tag Untap Effect, both miss Voltron on an attacks-alone Equipment."
+  },
+  {
+   "card_oracle_id": "c2d04138-cc17-4dd0-9a4c-9c87df72ed01",
+   "card_name": "Saruman of Many Colors",
+   "winner": "local_high",
+   "runs": {
+    "local_high": 56,
+    "local_low": 26
+   },
+   "notes": "Best tag set in the session: 14B gets Copy Effect, Graveyard Fill and Instant/Sorcery Matters, 3 of 4 correct, and themes it Spellslinger -- correct, the trigger is 'whenever you cast your second spell each turn'. 7B's role list is cleaner but its tags are 2 of 4. Both miss Mill despite the keyword line saying Mill."
+  },
+  {
+   "card_oracle_id": "76a416fa-d97b-4c24-af41-b2382f1fd546",
+   "card_name": "Sontaran General",
+   "winner": "local_high",
+   "runs": {
+    "local_high": 57,
+    "local_low": 27
+   },
+   "notes": "7B calls a 5/5 creature a Board Wipe and fabricates a sacrifice clause in its summary. 14B's Voltron theme is backwards for a battalion card that needs three attackers, but it is one error against two and its summary is faithful. Neither has a usable role: goad has no entry in the role vocabulary."
+  },
+  {
+   "card_oracle_id": "46ed38d1-e642-4cea-99ed-a9c17fd982b1",
+   "card_name": "Sultai Charm",
+   "winner": "local_low",
+   "runs": {
+    "local_high": 58,
+    "local_low": 28
+   },
+   "notes": "7B's power 6 and its clean pair of correct roles beat 14B's early=7 on a 3-mana charm plus Hand Disruption for discarding your own card. 14B does get Discard right. Both tag sets are near-useless."
+  },
+  {
+   "card_oracle_id": "07995092-af6c-43b8-b30b-17e020ead37c",
+   "card_name": "Thunderous Debut",
+   "winner": "local_low",
+   "runs": {
+    "local_high": 59,
+    "local_low": 29
+   },
+   "notes": "14B scores an {6}{G}{G} sorcery 8/7/6 -- the curve is inverted, and that would tell the deck builder to treat an eight-drop as an early play. 7B's 4/6/8 is right. 14B's Card Selection role is the better one, and 7B's five tags are 0 for 5, the worst in the run, but the curve decides it."
+  },
+  {
+   "card_oracle_id": "21bb3c03-c1c0-40ec-8df4-8d0054c3742b",
+   "card_name": "Visage of Bolas",
+   "winner": "local_high",
+   "runs": {
+    "local_high": 60,
+    "local_low": 30
+   },
+   "notes": "14B names Mana Fixing and Tutor, both exactly right. 7B gets all three roles wrong -- Recursion, Graveyard Hate, Counterspell -- and fabricates 'forcing them to search their libraries'. Your read is right: 7B is reasoning about Nicol Bolas, a card it cannot see, rather than about the artifact in front of it. Both rate a bad card at power 8."
+  }
+ ]
+}

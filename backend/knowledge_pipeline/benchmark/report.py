@@ -4,11 +4,24 @@
 whole purpose is to answer three questions: is a 14B local model viable at all,
 what signal should trigger escalation to frontier, and how much of the corpus
 that rule would route to frontier. `store.py` records the raw material for those
-answers — one row per (card, tier) generation call. This module turns ~900 such
-rows into something a maintainer can actually read.
+answers — sessions, one row per (card, tier) generation call inside them, and
+the per-card picks between tiers. This module turns that into something a
+maintainer can actually read.
 
-**The primary view is cross-tier comparison _within a difficulty bucket_, not
-the overall average.** That is not a layout preference; it is the document's
+**The primary scope is one session, because that is the only scope in which a
+comparison is sound.** A session is one invocation of `run`: a frozen card set
+put through every tier in serial succession, under one prompt and one set of
+decoding knobs. Pooling sessions is offered and is useful — a prompt revision
+or a new model release makes a second session, and the trend across them
+matters — but it is a deliberate step away from the comparison the benchmark
+exists to produce, so the HTML output is tabbed by session with everything
+pooled on an Overview tab, and the Overview says out loud when the sessions it
+pools do not share a `system_prompt_sha256`.
+
+Within a session, and within the Overview, the next scope down is the one the
+document specifies:
+
+**cross-tier comparison _within a difficulty bucket_, not the overall average.** That is not a layout preference; it is the document's
 central instruction: "the number that decides anything is the *gap* between
 tiers on the hard bucket, not the average across all 300." A report whose
 headline is "local_high scored 87% overall" answers no question anyone is
@@ -23,9 +36,10 @@ What this module computes, per `(bucket, tier)` group and per tier overall:
 - **Schema validity rate** — the fraction of calls whose `raw_response` parsed
   as a valid `CardMetadataOutput`. Per the *Scoring* section this is the one
   quality number that needs no ground truth: a model that ignores the closed
-  vocabulary has failed regardless of how good its judgment otherwise is. Both
-  Qwen tiers are code-tuned rather than instruction-tuned, so this rate is the
-  specific thing the benchmark was told to confirm rather than assume.
+  vocabulary has failed regardless of how good its judgment otherwise is. The
+  tiers ran code-tuned Qwen models through S-001 and general instruction-tuned
+  ones after it, so this rate is the specific thing the benchmark was told to
+  confirm rather than assume for either line.
 - **Latency** — mean, p50, p95 in ms. For the local tiers there is no bill, so
   this *is* their cost axis.
 - **Cost** — total and per-run USD. Zero for local tiers by construction.
@@ -59,8 +73,8 @@ decisions.
 ## Reading the data by hand
 
 This module is a convenience, not a gate. `benchmark.db` is an ordinary SQLite
-file with one denormalized table, and the fastest way to answer a question it
-doesn't already answer is to ask SQLite directly::
+file with three tables, and the fastest way to answer a question it doesn't
+already answer is to ask SQLite directly::
 
     sqlite3 backend/knowledge_pipeline/benchmark/benchmark.db
     sqlite> .headers on
@@ -107,6 +121,25 @@ One card, all three tiers side by side, to read the raw output the way the
     WHERE card_name = 'Sol Ring'
     ORDER BY model_tier;
 
+How one session's picks landed -- the number a session exists to produce
+(remember that it means nothing unless that session's status is `complete`)::
+
+    SELECT winner, COUNT(*) AS n
+    FROM benchmark_pairs
+    WHERE session_id = 'S-003'
+    GROUP BY winner
+    ORDER BY n DESC;
+
+Which cells of a session's grid are missing, i.e. why it is `partial`::
+
+    SELECT s.id, s.status,
+           json_array_length(s.card_ids) * json_array_length(s.tiers) AS expected,
+           COUNT(r.id)                                                AS recorded
+    FROM benchmark_sessions s
+    LEFT JOIN benchmark_runs r ON r.session_id = s.id
+    GROUP BY s.id
+    ORDER BY s.started_at;
+
 The review backlog, since every aggregate above is only as trustworthy as its
 coverage::
 
@@ -128,14 +161,15 @@ And an export, when the question really does want a spreadsheet::
 `build_report` and everything under it operate on a plain sequence of mappings,
 not on a database handle: `sqlite3.Row` supports `row["column"]`, and so does a
 dict, so tests and any future export path feed the same code the store does. The
-`store` import lives inside `load_rows`/`main` rather than at module scope for
+`store` import lives inside `load_store`/`main` rather than at module scope for
 that reason — the aggregation layer has no opinion about where rows came from,
 and nothing in it should break if the store grows a second backend.
 
 CLI::
 
     python -m knowledge_pipeline.benchmark.report                      # text summary
-    python -m knowledge_pipeline.benchmark.report --html report.html   # + HTML file
+    python -m knowledge_pipeline.benchmark.report --html report.html   # + tabbed page
+    python -m knowledge_pipeline.benchmark.report --session S-003      # one session
     python -m knowledge_pipeline.benchmark.report --bucket hard --tier local_high
 
 The package's own `__main__.py` is owned elsewhere; a `report` subcommand could
@@ -146,13 +180,21 @@ from __future__ import annotations
 
 import argparse
 import html
+import json
 import math
+import re
+import statistics
 import sys
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+
+# Deliberately the package-root module and not anything under
+# `metadata_generator/`, whose `__init__` would pull pydantic, the Anthropic
+# SDK and a session factory in behind it. See that module's docstring.
+from ..cost_profile import facts_from_prompt, has_cost_exception
 
 # One row of `benchmark_runs`. `sqlite3.Row` is not a `Mapping` subclass, but it
 # supports the only operation anything here performs on a row — `row["name"]` —
@@ -178,6 +220,23 @@ TIER_LABELS: Mapping[str, str] = {
     "local_high": "local 14B",
     "frontier": "frontier",
 }
+
+# `store.seed_demo` tags synthetic rows by prefixing `model_name`, and the store
+# justifies that choice by claiming the prefix is "self-describing in every
+# report the reporting layer prints". It was not: every table here labels a
+# group by its *tier* (`TIER_LABELS`), so `demo/qwen2.5-coder-7b` rendered as
+# plain "local 7B" and a reader had no way to tell fabricated latencies from
+# measured ones. Honouring that claim is what `SYNTHETIC_MARKER` below is for.
+#
+# Duplicated from `store.DEMO_MODEL_PREFIX` rather than imported, because the
+# module docstring's layering rule keeps `store` out of this module's imports
+# so aggregation stays usable on any sequence of mappings. A test asserts the
+# two stay equal, which is the half of an import that actually matters here.
+SYNTHETIC_MODEL_PREFIX = "demo/"
+
+# Appended to a tier label whose rows are synthetic. Wide and shouty on
+# purpose: this marker's whole job is to be impossible to skim past.
+SYNTHETIC_MARKER = " [DEMO]"
 
 # The tier every other tier is measured against. The benchmark's whole question
 # is "how far behind frontier is local, on hard cards" — so frontier is the
@@ -302,6 +361,54 @@ class AccuracyScores:
 
 
 @dataclass(frozen=True)
+class TimingScores:
+    """`game_stage` calibration, scored without ground truth.
+
+    The two metrics here are the only ones in this module that say whether
+    `game_stage` is any good, and they cost no human labelling at all -- which
+    is what makes them worth having while the hand-labelled truth set is still
+    missing (`docs/benchmarking-and-testing.md`).
+
+    **`castability_corr` is computed over plain-cost cards only.** For 17% of
+    the corpus mana value is not the cost to function
+    (`metadata_generator/cost_profile.py`), and on those cards a weak
+    correlation is the *correct* answer -- Convoke really does make a five-drop
+    castable early. Pooling them in would mark right answers wrong. Measured on
+    S-001 the scoping matters in the other direction too: the figure is -0.13
+    over all rows and -0.03 over plain-cost rows alone, so the exceptions were
+    masking how flat the plain cards are.
+    """
+
+    plain_runs: int
+    exception_runs: int
+    castability_corr: float | None
+    early_mean: float | None
+    shapes: Mapping[str, int]
+    exception_cards: tuple[str, ...]
+
+    @property
+    def scored(self) -> int:
+        return self.plain_runs
+
+    @property
+    def shaped(self) -> int:
+        return sum(self.shapes.values())
+
+    def shape_rate(self, shape: str) -> float | None:
+        return _rate(self.shapes.get(shape, 0), self.shaped)
+
+
+SHAPE_ORDER: tuple[str, ...] = ("rising", "falling", "peaked", "dipped", "flat")
+"""`game_stage` curve shapes, in the order the renderers list them.
+
+Shape is tracked because the measured bias is in the *curve*, not in any one
+axis: on S-001 half of all profiles were non-decreasing, a sixth fell, and
+exactly one of sixty was flat -- while `docs/data-model.md`'s own worked
+example (Cultivate, 9/4/1) is a declining curve.
+"""
+
+
+@dataclass(frozen=True)
 class GroupStats:
     """Every metric for one slice of the run log.
 
@@ -325,6 +432,7 @@ class GroupStats:
     output_tokens_mean: float | None
     verdicts: VerdictBreakdown
     accuracy: AccuracyScores | None
+    timing: TimingScores | None = None
 
     @property
     def schema_valid_rate(self) -> float | None:
@@ -333,6 +441,37 @@ class GroupStats:
     @property
     def is_empty(self) -> bool:
         return self.runs == 0
+
+    @property
+    def synthetic_model_names(self) -> tuple[str, ...]:
+        """The `demo/`-prefixed models in this group, if any."""
+        return tuple(
+            name for name in self.model_names if name.startswith(SYNTHETIC_MODEL_PREFIX)
+        )
+
+    @property
+    def has_synthetic(self) -> bool:
+        """Whether any run here came from `seed_demo` rather than a real model.
+
+        Every metric on a group that answers `True` is fabricated, and the
+        renderers must say so. `model_names` was already collected for exactly
+        this kind of question; it simply went unasked.
+        """
+        return bool(self.synthetic_model_names)
+
+    @property
+    def is_mixed(self) -> bool:
+        """Synthetic *and* measured runs in one group -- the worst case.
+
+        `store.seed_demo` and `runner._refuse_demo_rows` both refuse to create
+        this state, so reaching it means rows were written by something that
+        bypassed both. It cannot be rendered honestly as either kind, so the
+        renderers flag the group itself as untrustworthy rather than labelling
+        it synthetic and implying the measured rows are fake too.
+        """
+        return self.has_synthetic and len(self.synthetic_model_names) < len(
+            self.model_names
+        )
 
 
 @dataclass(frozen=True)
@@ -357,7 +496,89 @@ class TierGap:
     cost_saved_per_run: float | None
 
 
-@dataclass
+@dataclass(frozen=True)
+class PassStats:
+    """One (tier, pass) group's call-level facts. Never merged across passes.
+
+    The numbers here answer "how fast is this tier, and at what?", which is the
+    one question the merged view cannot answer. Prefill and decode are reported
+    separately for the reason `GenerationAttempt` spells out — prefill is
+    compute-bound over the whole prompt, decode is bandwidth-bound one token at
+    a time, and this project once shipped a wrong conclusion by blending them
+    (`docs/lessons-learned.md`).
+
+    The split matters more now than it did, because the two passes differ in
+    exactly the dimension that confuses a blended rate: pass one prefills the
+    taxonomy to generate seven fields, pass two prefills a short rubric plus a
+    few ladders to generate two.
+    """
+
+    model_tier: str
+    pass_name: str
+    calls: int
+    schema_valid_rate: float | None
+    latency_p50: float | None
+    input_tokens_mean: float | None
+    output_tokens_mean: float | None
+    decode_tokens_per_second: float | None
+    prefill_tokens_per_second: float | None
+
+
+def summarize_passes(rows: Iterable[Run]) -> dict[tuple[str, str], PassStats]:
+    """Per-(tier, pass) call statistics, from the *unmerged* rows.
+
+    Takes `store.iter_runs`' output directly. Rates are computed from the
+    phase columns rather than from `latency_ms`, so model load and prefill
+    cannot leak into the decode figure; a row whose backend reported no phase
+    split (all three zero) contributes to the counts and to nothing else,
+    because a zero there means "unknown" and not "instant".
+    """
+    grouped: dict[tuple[str, str], list[Run]] = {}
+    for row in rows:
+        grouped.setdefault(
+            (str(row["model_tier"]), str(row["pass_name"])), []
+        ).append(row)
+
+    stats: dict[tuple[str, str], PassStats] = {}
+    for (tier, pass_name), group in grouped.items():
+        decode_tokens = sum(
+            (row["output_tokens"] or 0) for row in group if (row["eval_ms"] or 0) > 0
+        )
+        decode_ms = sum(row["eval_ms"] or 0 for row in group)
+        prefill_tokens = sum(
+            (row["input_tokens"] or 0)
+            for row in group
+            if (row["prompt_eval_ms"] or 0) > 0
+        )
+        prefill_ms = sum(row["prompt_eval_ms"] or 0 for row in group)
+
+        stats[(tier, pass_name)] = PassStats(
+            model_tier=tier,
+            pass_name=pass_name,
+            calls=len(group),
+            schema_valid_rate=(
+                sum(1 for row in group if row["schema_valid"]) / len(group)
+                if group
+                else None
+            ),
+            latency_p50=_percentile(
+                [float(row["latency_ms"] or 0) for row in group], 0.5
+            ),
+            input_tokens_mean=_mean([float(row["input_tokens"] or 0) for row in group]),
+            output_tokens_mean=_mean(
+                [float(row["output_tokens"] or 0) for row in group]
+            ),
+            decode_tokens_per_second=(
+                decode_tokens / (decode_ms / 1000) if decode_ms > 0 else None
+            ),
+            prefill_tokens_per_second=(
+                prefill_tokens / (prefill_ms / 1000) if prefill_ms > 0 else None
+            ),
+        )
+    return stats
+
+
+@dataclass(frozen=True)
 class BenchmarkReport:
     """The fully aggregated benchmark, ready to render.
 
@@ -366,6 +587,12 @@ class BenchmarkReport:
     section's whole premise is that a maintainer reads each output, so an
     aggregate-only artifact would drop the thing the benchmark is actually for.
     At ~900 rows that is a few MB of HTML, which is fine for a local file.
+
+    `runs` is one row per (card, tier): production's two calls merged, which is
+    the unit every view here reasons about. `raw_runs` is the store's own shape,
+    one row per (card, tier, pass), kept because throughput must not be read
+    off the merge — a pass-one call and a pass-two call have different prompt
+    sizes and different answer lengths, and a blended rate describes neither.
     """
 
     runs: tuple[Run, ...]
@@ -375,6 +602,9 @@ class BenchmarkReport:
     by_tier: Mapping[str, GroupStats]
     overall: GroupStats
     ground_truth_available: bool
+    raw_runs: tuple[Run, ...] = ()
+    per_pass: Mapping[tuple[str, str], "PassStats"] = field(default_factory=dict)
+    sessions: tuple["SessionView", ...] = ()
     db_path: Path | None = None
     generated_at: datetime = field(
         default_factory=lambda: datetime.now(timezone.utc).replace(tzinfo=None)
@@ -383,6 +613,60 @@ class BenchmarkReport:
     @property
     def total_runs(self) -> int:
         return self.overall.runs
+
+    def session(self, session_id: str) -> "SessionView | None":
+        for view in self.sessions:
+            if view.session_id == session_id:
+                return view
+        return None
+
+    @property
+    def prompt_fingerprints(self) -> tuple[str, ...]:
+        """Every distinct system-prompt SHA-256 across the sessions shown.
+
+        More than one means the cross-session tables are pooling runs made
+        against *different prompts* — different anchors, rubric or taxonomy —
+        and every pooled number is then a comparison of two things that were
+        not asked the same question. The renderers say so rather than letting
+        the pooling look clean, because the prompt is a ~48KB blob nobody
+        diffs by eye and the fingerprint is the only way to notice.
+        """
+        return tuple(sorted({view.prompt_sha256 for view in self.sessions}))
+
+    @property
+    def schema_fingerprints(self) -> tuple[str, ...]:
+        """Every distinct output-schema SHA-256 across the sessions shown.
+
+        The other half of the comparability key, and the half this report once
+        went without. Under constrained decoding the schema *is* the grammar,
+        so two sessions can share a prompt byte for byte and still not be
+        poolable — which is not hypothetical: S-002 and S-003 of the previous
+        store differed only here, and the difference decided whether either
+        tier emitted `roles` at all (`docs/lessons-learned.md`).
+        """
+        return tuple(sorted({view.schemas_sha256 for view in self.sessions}))
+
+    @property
+    def pools_mixed_prompts(self) -> bool:
+        return len(self.prompt_fingerprints) > 1
+
+    @property
+    def synthetic_runs(self) -> int:
+        """How many rows came from `seed_demo` rather than a model call."""
+        return sum(
+            1
+            for row in self.runs
+            if str(row["model_name"] or "").startswith(SYNTHETIC_MODEL_PREFIX)
+        )
+
+    @property
+    def has_synthetic(self) -> bool:
+        return self.overall.has_synthetic
+
+    @property
+    def is_fully_synthetic(self) -> bool:
+        """Every row is fabricated -- the state a freshly seeded store is in."""
+        return self.total_runs > 0 and self.synthetic_runs == self.total_runs
 
     def bucket_view(self, bucket: str) -> list[GroupStats]:
         """The tiers of one bucket, side by side, in capability order.
@@ -445,6 +729,638 @@ def _ratio(value: float | None, baseline: float | None) -> float | None:
 
 
 # --------------------------------------------------------------------------
+# Sessions: the paired view
+#
+# A session is one invocation of `run` — a frozen card set put through every
+# tier in turn (`store.py`). It is the only scope in which "which model is
+# better" is a well-posed question, because it is the only scope that
+# guarantees the tiers answered the same cards under the same prompt. The
+# cross-session tables further down pool sessions and say so; these types are
+# what the per-session tabs render.
+# --------------------------------------------------------------------------
+
+# How many Commander-legal cards a production run would have to cover.
+# 31,575 eligible in `sample.json`'s corpus block plus the 255 anchor rungs it
+# excludes. Used only to turn a measured per-card latency into the wall-clock
+# figure that the win rate has to be weighed against — a model that wins by a
+# nose and costs nine extra days is not obviously the right pick.
+CORPUS_CARD_COUNT = 31_830
+
+# Multi-label fields compared tier-against-tier for the agreement score, and
+# the numeric ones. Agreement is NOT accuracy: it says the models said the same
+# thing, not that either was right. Its job is to order a review queue.
+_AGREEMENT_SET_FIELDS: tuple[str, ...] = ("roles", "themes", "synergy_tags")
+_GAME_STAGES: tuple[str, ...] = ("early", "mid", "late")
+
+
+def _jaccard(left: Iterable[Any], right: Iterable[Any]) -> float | None:
+    """Intersection over union of two label sets, or None if both are empty.
+
+    None rather than 1.0 for two empty sets: "neither model assigned a theme"
+    is not the models agreeing about themes, and feeding it in as perfect
+    agreement would quietly pull a card down the review queue.
+    """
+    first = {str(value) for value in left or ()}
+    second = {str(value) for value in right or ()}
+    union = first | second
+    if not union:
+        return None
+    return len(first & second) / len(union)
+
+
+# The keys a merged row carries from each pass. Everything else is either
+# identical across the two (card, tier, bucket) or summed.
+_PASS_ORDER: tuple[str, ...] = ("one", "two")
+
+# Columns that are wall clock or counts, and are therefore summed across the
+# two passes. `latency_ms` is the card's total cost; the *phase* split is
+# summed too, which is sound only because both passes are the same model on the
+# same machine moments apart -- and which is exactly why the per-pass view
+# exists beside this one rather than instead of it.
+_SUMMED_COLUMNS: tuple[str, ...] = (
+    "input_tokens",
+    "output_tokens",
+    "latency_ms",
+    "load_ms",
+    "prompt_eval_ms",
+    "eval_ms",
+    "cost_usd",
+)
+
+
+def merge_passes(rows: Iterable[Run]) -> tuple[Run, ...]:
+    """Collapse production's two calls per card into one row per (card, tier).
+
+    Every card-level view in this module — the side-by-side, the agreement
+    scores, `power_rating` and `game_stage` calibration, the pairwise picks —
+    asks a question about a card's *finished answer*, and a finished answer is
+    both passes: pass one holds the tags and `game_stage`, pass two holds
+    `power_rating` and `summary`. Fed the raw rows, every one of those views
+    would see two half-answers per card and silently double-count each tier.
+
+    So the raw rows stay the store's shape and this is the view that card-level
+    readers take. What is *not* merged is throughput: `render_per_pass_table`
+    reads the raw rows, because a pass-one call prefills ~2,000 tokens of
+    taxonomy to generate seven fields while a pass-two call prefills a short
+    rubric to generate two, and one blended rate describes neither.
+
+    Merge rules, and each is a judgment rather than an obvious default:
+
+    * `parsed_output` is the two parses merged, pass two's keys last — which is
+      `CardMetadataBlueprint.from_passes` in all but name. `None` unless *both*
+      passes parsed: half a blueprint is not a card's answer, and letting it
+      through would put a card with no `power_rating` into the rating
+      distribution as a gap rather than as a missing card.
+    * `schema_valid` is the conjunction, for the same reason.
+    * The timing and token columns are summed, so a card's cost is its real
+      cost.
+    * `raw_response` and `user_prompt` are concatenated under labelled headers,
+      because the HTML shows them and a reviewer reading a rating needs to see
+      the ladders it was rated against — which live in pass two's user message.
+    * `id` is pass two's row id where there is one, so a `review` or
+      `pair-verdict` id read off the page points at the row carrying the
+      rating. Falls back to pass one's for a card whose rating call never
+      landed.
+    * `human_verdict` takes the first verdict found, pass one first: the
+      per-run verdicts stay per *run* in the store, and a merged row is not
+      where two of them get reconciled.
+
+    A card with only one pass recorded still produces a row — it is a real
+    state (an interrupted session, or a pass one that failed its grammar) and
+    hiding it would make a partial session look complete.
+    """
+    grouped: dict[tuple[str, str, str], dict[str, Run]] = {}
+    order: list[tuple[str, str, str]] = []
+    for row in rows:
+        key = (
+            str(row["session_id"]),
+            str(row["card_oracle_id"]),
+            str(row["model_tier"]),
+        )
+        if key not in grouped:
+            grouped[key] = {}
+            order.append(key)
+        grouped[key][str(row["pass_name"])] = row
+
+    merged: list[Run] = []
+    for key in order:
+        passes = grouped[key]
+        # Known passes in generation order, then anything unrecognized in the
+        # order it arrived. A reporting layer must not crash on a store written
+        # by a newer schema with a third pass in it; it should show what it can
+        # and leave the rest legible.
+        present = [name for name in _PASS_ORDER if name in passes]
+        present += [name for name in passes if name not in _PASS_ORDER]
+        anchor = passes[present[-1]]
+
+        combined: dict[str, Any] = dict(anchor)
+        for column in _SUMMED_COLUMNS:
+            combined[column] = sum(
+                (passes[name][column] or 0) for name in present
+            )
+
+        parses = {name: _parsed(passes[name]) for name in present}
+        known = [name for name in present if name in _PASS_ORDER]
+        complete = len(known) == len(_PASS_ORDER) and all(
+            parses[name] is not None for name in known
+        )
+        if complete:
+            blueprint: dict[str, Any] = {}
+            for name in present:
+                blueprint.update(parses[name] or {})
+            # Re-encoded rather than handed over as a dict: `iter_runs`'
+            # contract is that `parsed_output` is JSON TEXT, every reader here
+            # decodes it for itself, and the HTML prints it verbatim. A merged
+            # row that broke that would be the one row in the report whose type
+            # differs from every other.
+            combined["parsed_output"] = json.dumps(blueprint, sort_keys=True)
+            combined["schema_valid"] = 1
+        else:
+            combined["parsed_output"] = None
+            combined["schema_valid"] = 0
+
+        combined["raw_response"] = "\n\n".join(
+            f"--- pass {name} ---\n{passes[name]['raw_response']}"
+            for name in present
+        )
+        combined["user_prompt"] = "\n\n".join(
+            f"--- pass {name} user message ---\n{passes[name]['user_prompt']}"
+            for name in present
+        )
+        combined["system_prompt"] = "\n\n".join(
+            f"--- pass {name} system prompt ---\n{passes[name]['system_prompt']}"
+            for name in present
+        )
+        combined["pass_name"] = "+".join(present)
+        combined["passes_recorded"] = len(present)
+
+        for name in present:
+            if passes[name]["human_verdict"] is not None:
+                combined["human_verdict"] = passes[name]["human_verdict"]
+                combined["human_notes"] = passes[name]["human_notes"]
+                combined["reviewed_at"] = passes[name]["reviewed_at"]
+                break
+
+        merged.append(combined)
+
+    return tuple(merged)
+
+
+def _parsed(row: Run) -> dict[str, Any] | None:
+    """A run's `parsed_output`, decoded. `None` when it never parsed.
+
+    The store hands back raw JSON TEXT by design (`iter_runs`), so every reader
+    decodes for itself; this is that decode, plus tolerance for a row whose
+    JSON is unreadable, which would otherwise take down a whole report over
+    one bad cell.
+    """
+    raw = row["parsed_output"]
+    if raw is None:
+        return None
+    if isinstance(raw, Mapping):
+        return dict(raw)
+    try:
+        value = json.loads(raw)
+    except (TypeError, ValueError):
+        return None
+    return value if isinstance(value, dict) else None
+
+
+@dataclass(frozen=True)
+class AgreementScores:
+    """How closely two tiers' answers to one card line up.
+
+    Deliberately not called "accuracy". With no ground truth, two models
+    agreeing says only that; both can be wrong together, and on a hard card
+    they often are. What this is *for* is ordering the review queue: on a
+    30-card session, reading the eight cards where the tiers disagree is worth
+    more than reading all 30 in alphabetical order, and tier disagreement is
+    itself one of the candidate escalation signals the benchmark doc asks this
+    to test.
+    """
+
+    left_tier: str
+    right_tier: str
+    set_jaccard: Mapping[str, float | None]
+    power_rating_delta: float | None
+    game_stage_delta: float | None
+
+    @property
+    def score(self) -> float | None:
+        """One 0-1 agreement number, or None when nothing was comparable.
+
+        The set fields average into it directly. The two numeric fields enter
+        as `1 - delta/9`, i.e. a full-scale disagreement on a 1-10 rating
+        counts as total disagreement — crude, deliberately, because this
+        number's only job is to sort rows.
+        """
+        parts = [value for value in self.set_jaccard.values() if value is not None]
+        for delta in (self.power_rating_delta, self.game_stage_delta):
+            if delta is not None:
+                parts.append(max(0.0, 1.0 - (delta / 9.0)))
+        if not parts:
+            return None
+        return sum(parts) / len(parts)
+
+    @property
+    def disagreement(self) -> float:
+        """Sort key for the review queue. Unknown sorts as maximal.
+
+        A card where one tier produced nothing parseable has no agreement
+        score, and it is the *most* interesting row on the page — so it sorts
+        first rather than last.
+        """
+        score = self.score
+        return 1.0 if score is None else 1.0 - score
+
+
+def compare_runs(left: Run, right: Run) -> AgreementScores | None:
+    """Field-by-field agreement between two tiers' answers to one card.
+
+    Returns `None` if the two runs are from the same tier, which would make the
+    comparison meaningless rather than merely empty.
+    """
+    left_tier = str(left["model_tier"])
+    right_tier = str(right["model_tier"])
+    if left_tier == right_tier:
+        return None
+
+    left_parsed = _parsed(left)
+    right_parsed = _parsed(right)
+
+    if left_parsed is None or right_parsed is None:
+        # One tier produced nothing parseable, so there is nothing to compare.
+        # Every field reports unknown rather than 0% agreement: an empty answer
+        # against a populated one is not a *measured* disagreement, and scoring
+        # it as one would put a number on a comparison that never happened.
+        # `disagreement` still treats unknown as maximal, so the card keeps its
+        # place at the top of the review queue, which is where it belongs.
+        return AgreementScores(
+            left_tier=left_tier,
+            right_tier=right_tier,
+            set_jaccard=dict.fromkeys(_AGREEMENT_SET_FIELDS, None),
+            power_rating_delta=None,
+            game_stage_delta=None,
+        )
+
+    set_scores = {
+        field: _jaccard(left_parsed.get(field) or (), right_parsed.get(field) or ())
+        for field in _AGREEMENT_SET_FIELDS
+    }
+
+    power_delta: float | None = None
+    left_power, right_power = left_parsed.get("power_rating"), right_parsed.get(
+        "power_rating"
+    )
+    if isinstance(left_power, (int, float)) and isinstance(right_power, (int, float)):
+        power_delta = abs(float(left_power) - float(right_power))
+
+    stage_delta: float | None = None
+    left_stage = left_parsed.get("game_stage") or {}
+    right_stage = right_parsed.get("game_stage") or {}
+    if isinstance(left_stage, Mapping) and isinstance(right_stage, Mapping):
+        deltas = [
+            abs(float(left_stage[stage]) - float(right_stage[stage]))
+            for stage in _GAME_STAGES
+            if isinstance(left_stage.get(stage), (int, float))
+            and isinstance(right_stage.get(stage), (int, float))
+        ]
+        if deltas:
+            stage_delta = sum(deltas) / len(deltas)
+
+    return AgreementScores(
+        left_tier=left_tier,
+        right_tier=right_tier,
+        set_jaccard=set_scores,
+        power_rating_delta=power_delta,
+        game_stage_delta=stage_delta,
+    )
+
+
+@dataclass(frozen=True)
+class CardComparison:
+    """One card of a session, as every tier answered it.
+
+    `runs` is keyed by tier and may be missing one: that is a cell of the
+    session's grid with no row, and the renderers mark it rather than quietly
+    comparing the tiers that did answer. `winner` is the recorded pick from
+    `benchmark_pairs`, or `None` while the card is still undecided.
+    """
+
+    oracle_id: str
+    name: str
+    bucket: str
+    runs: Mapping[str, Run]
+    tiers: tuple[str, ...]
+    winner: str | None = None
+    pair_notes: str | None = None
+    agreement: AgreementScores | None = None
+
+    @property
+    def complete(self) -> bool:
+        """Whether every tier of the session answered this card."""
+        return all(tier in self.runs for tier in self.tiers)
+
+    @property
+    def missing_tiers(self) -> tuple[str, ...]:
+        return tuple(tier for tier in self.tiers if tier not in self.runs)
+
+    @property
+    def decided(self) -> bool:
+        return self.winner is not None
+
+    @property
+    def disagreement(self) -> float:
+        """The review-queue sort key. An incomplete card sorts first of all."""
+        if not self.complete:
+            return 2.0
+        return self.agreement.disagreement if self.agreement else 1.0
+
+
+@dataclass(frozen=True)
+class WinTally:
+    """How a session's decided cards split between its tiers.
+
+    `interval` is a 95% Wilson score interval on the leading tier's share, and
+    it is not decoration. A 30-card session that splits 17-13 looks like a
+    winner and is noise: the interval on 17/30 runs roughly 39%-74%, which
+    includes "the other model is better". Reporting a bare percentage here
+    would be the single easiest way to read a conclusion out of this benchmark
+    that the benchmark does not support.
+    """
+
+    counts: Mapping[str, int]
+    decided: int
+    undecided: int
+
+    @property
+    def tally(self) -> str:
+        """`17-13-0` style, in the order the session ran its tiers."""
+        return "-".join(str(count) for count in self.counts.values())
+
+    def rate(self, tier: str) -> float | None:
+        return _rate(self.counts.get(tier, 0), self.decided)
+
+    def interval(self, tier: str) -> tuple[float, float] | None:
+        return wilson_interval(self.counts.get(tier, 0), self.decided)
+
+
+def wilson_interval(
+    successes: int, total: int, *, z: float = 1.96
+) -> tuple[float, float] | None:
+    """95% Wilson score interval for a proportion. `None` when `total` is 0.
+
+    Wilson rather than the textbook normal approximation because the normal one
+    is wrong in exactly this regime — small n, proportions near 0 or 1 — and
+    can produce bounds outside [0, 1], which would read as a bug rather than as
+    the caveat it is meant to be.
+    """
+    if total <= 0:
+        return None
+    proportion = successes / total
+    denominator = 1 + z**2 / total
+    centre = (proportion + z**2 / (2 * total)) / denominator
+    margin = (
+        z
+        * math.sqrt(proportion * (1 - proportion) / total + z**2 / (4 * total**2))
+        / denominator
+    )
+    return (max(0.0, centre - margin), min(1.0, centre + margin))
+
+
+@dataclass(frozen=True)
+class SessionView:
+    """One session, fully aggregated: its provenance, cards and per-tier stats.
+
+    This is what a tab in the HTML report is. Everything a reader needs to
+    decide whether the session's numbers mean anything lives on it — the frozen
+    card count, the status, the prompt fingerprint, which models answered —
+    because a tab that showed only results would invite exactly the comparison
+    across incompatible sessions that sessions were introduced to prevent.
+    """
+
+    session_id: str
+    label: str | None
+    status: str
+    started_at: str
+    finished_at: str | None
+    buckets: tuple[str, ...]
+    cards_per_bucket: int
+    tiers: tuple[str, ...]
+    models: Mapping[str, str]
+    num_ctx: int
+    temperature: float
+    model_seed: int | None
+    draw_seed: int
+    sample_path: str | None
+    sample_seed: int | None
+    prompt_sha256: str
+    schemas_sha256: str
+    notes: str | None
+    cards: tuple[CardComparison, ...]
+    by_tier: Mapping[str, GroupStats]
+    runs: tuple[Run, ...]
+    expected_cards: int
+
+    @property
+    def expected_calls(self) -> int:
+        return self.expected_cards * len(self.tiers)
+
+    @property
+    def recorded_calls(self) -> int:
+        return len(self.runs)
+
+    @property
+    def missing_cells(self) -> int:
+        return max(0, self.expected_calls - self.recorded_calls)
+
+    @property
+    def complete_cards(self) -> tuple[CardComparison, ...]:
+        """Only the cards every tier answered — the comparable subset."""
+        return tuple(card for card in self.cards if card.complete)
+
+    @property
+    def is_paired(self) -> bool:
+        """Whether a win rate over this session compares like with like."""
+        return self.missing_cells == 0 and len(self.tiers) > 1
+
+    @property
+    def is_synthetic(self) -> bool:
+        return any(
+            str(model).startswith(SYNTHETIC_MODEL_PREFIX) for model in self.models.values()
+        )
+
+    @property
+    def wins(self) -> WinTally:
+        counts: dict[str, int] = {tier: 0 for tier in self.tiers}
+        for outcome in VERDICT_NO_WINNER:
+            counts[outcome] = 0
+        decided = 0
+        for card in self.cards:
+            if card.winner is None:
+                continue
+            decided += 1
+            counts[card.winner] = counts.get(card.winner, 0) + 1
+        return WinTally(
+            counts=counts, decided=decided, undecided=len(self.cards) - decided
+        )
+
+    @property
+    def disagreement_order(self) -> tuple[CardComparison, ...]:
+        """Cards worst-agreement first — the order to review them in."""
+        return tuple(
+            sorted(self.cards, key=lambda card: (-card.disagreement, card.name))
+        )
+
+    def projected_corpus_hours(self, tier: str) -> float | None:
+        """Wall clock to run the whole corpus at this tier's measured p50.
+
+        The other half of every verdict this page renders. The 14B winning a
+        session is a finding; the 14B winning a session and costing nine extra
+        days of inference for ~31,830 cards is a decision, and a page that
+        showed only the first would be arguing one side of it.
+        """
+        stats = self.by_tier.get(tier)
+        if stats is None or stats.latency_p50 is None:
+            return None
+        return stats.latency_p50 * CORPUS_CARD_COUNT / 1000 / 3600
+
+
+# Pair outcomes that are not a tier. Duplicated from `store.NO_WINNER` for the
+# same layering reason `SYNTHETIC_MODEL_PREFIX` is duplicated: nothing here
+# imports the store. A test asserts the two stay equal.
+VERDICT_NO_WINNER: tuple[str, ...] = ("tie", "both_bad")
+
+
+def build_session_views(
+    rows: Sequence[Run],
+    sessions: Sequence[Mapping[str, Any]],
+    pairs: Sequence[Mapping[str, Any]],
+    *,
+    ground_truth: Mapping[str, dict] | None = None,
+) -> tuple[SessionView, ...]:
+    """One `SessionView` per session row, newest first.
+
+    Takes session and pair rows as plain mappings, like everything else here,
+    so the aggregation layer still never imports the store. JSON columns arrive
+    as strings (that is what SQLite gives back) and are decoded here.
+    """
+    views: list[SessionView] = []
+
+    for session in sessions:
+        session_id = str(session["id"])
+        tiers = tuple(_decode_list(session["tiers"]))
+        card_ids = tuple(_decode_list(session["card_ids"]))
+        session_rows = tuple(
+            row for row in rows if str(row["session_id"]) == session_id
+        )
+
+        by_card: dict[str, dict[str, Run]] = {}
+        for row in session_rows:
+            by_card.setdefault(str(row["card_oracle_id"]), {})[
+                str(row["model_tier"])
+            ] = row
+
+        decisions = {
+            str(pair["card_oracle_id"]): pair
+            for pair in pairs
+            if str(pair["session_id"]) == session_id
+        }
+
+        comparisons: list[CardComparison] = []
+        # Driven by the session's frozen card list, not by the rows: a card
+        # nothing was recorded for still has to appear, as the missing cell it
+        # is. Deriving the list from the rows could only ever show a complete
+        # session.
+        for card_id in card_ids:
+            tier_runs = by_card.get(card_id, {})
+            any_run = next(iter(tier_runs.values()), None)
+            pair = decisions.get(card_id)
+
+            agreement = None
+            present = [tier_runs[tier] for tier in tiers if tier in tier_runs]
+            if len(present) >= 2:
+                agreement = compare_runs(present[0], present[1])
+
+            comparisons.append(
+                CardComparison(
+                    oracle_id=card_id,
+                    name=str(any_run["card_name"]) if any_run else card_id,
+                    bucket=str(any_run["bucket"]) if any_run else "?",
+                    runs=tier_runs,
+                    tiers=tiers,
+                    winner=str(pair["winner"]) if pair else None,
+                    pair_notes=(pair["notes"] if pair else None),
+                    agreement=agreement,
+                )
+            )
+
+        views.append(
+            SessionView(
+                session_id=session_id,
+                label=session["label"],
+                status=str(session["status"]),
+                started_at=str(session["started_at"]),
+                finished_at=session["finished_at"],
+                buckets=tuple(_decode_list(session["buckets"])),
+                cards_per_bucket=int(session["cards_per_bucket"]),
+                tiers=tiers,
+                models=_decode_mapping(session["models"]),
+                num_ctx=int(session["num_ctx"]),
+                temperature=float(session["temperature"]),
+                model_seed=(
+                    int(session["model_seed"])
+                    if session["model_seed"] is not None
+                    else None
+                ),
+                draw_seed=int(session["draw_seed"]),
+                sample_path=session["sample_path"],
+                sample_seed=session["sample_seed"],
+                prompt_sha256=str(session["system_prompts_sha256"]),
+                schemas_sha256=str(session["output_schemas_sha256"]),
+                notes=session["notes"],
+                cards=tuple(comparisons),
+                by_tier={
+                    tier: summarize(
+                        [row for row in session_rows if row["model_tier"] == tier],
+                        bucket=None,
+                        model_tier=tier,
+                        ground_truth=ground_truth,
+                    )
+                    for tier in tiers
+                },
+                runs=session_rows,
+                expected_cards=len(card_ids),
+            )
+        )
+
+    # Newest first: the session a maintainer just ran is the one they opened
+    # the page for. The store returns them oldest-first (one ordering
+    # convention, no presentation opinions), so the reversal happens here.
+    return tuple(reversed(views))
+
+
+def _decode_list(value: Any) -> list[str]:
+    if isinstance(value, (list, tuple)):
+        return [str(item) for item in value]
+    try:
+        decoded = json.loads(value)
+    except (TypeError, ValueError):
+        return []
+    return [str(item) for item in decoded] if isinstance(decoded, list) else []
+
+
+def _decode_mapping(value: Any) -> dict[str, str]:
+    if isinstance(value, Mapping):
+        return {str(k): str(v) for k, v in value.items()}
+    try:
+        decoded = json.loads(value)
+    except (TypeError, ValueError):
+        return {}
+    return {str(k): str(v) for k, v in decoded.items()} if isinstance(decoded, dict) else {}
+
+
+# --------------------------------------------------------------------------
 # Accuracy scoring — the plug-in that has nothing to plug into yet
 # --------------------------------------------------------------------------
 
@@ -486,6 +1402,101 @@ def _f1(true_positive: int, false_positive: int, false_negative: int) -> float |
     if denominator == 0:
         return None
     return 2 * true_positive / denominator
+
+
+_MANA_VALUE_LINE = re.compile(r"^Mana value: ([0-9.]+)\s*$", re.MULTILINE)
+
+
+def _curve_shape(early: float, mid: float, late: float) -> str:
+    """Which of `SHAPE_ORDER` this profile is. Exhaustive by construction."""
+    if early == mid == late:
+        return "flat"
+    if early <= mid <= late:
+        return "rising"
+    if early >= mid >= late:
+        return "falling"
+    if mid >= early and mid >= late:
+        return "peaked"
+    return "dipped"
+
+
+def _correlation(pairs: Sequence[tuple[float, float]]) -> float | None:
+    """Pearson r, or None when it is undefined rather than zero.
+
+    Two runs on the same card give identical mana values, so a small slice can
+    easily have no variance on the x axis at all. `statistics.correlation`
+    raises there; reporting that as 0.0 would read as "no relationship", which
+    is a measurement, when the honest answer is "not measurable".
+    """
+    if len(pairs) < 3:
+        return None
+    try:
+        return statistics.correlation([x for x, _ in pairs], [y for _, y in pairs])
+    except statistics.StatisticsError:
+        return None
+
+
+def score_timing(rows: Sequence[Run]) -> TimingScores | None:
+    """Score `game_stage` against the one fact that needs no hand labels.
+
+    A card you cannot cast until turn seven is not doing much on turn two, so
+    `early` should track mana value downward. It is the rare metadata field
+    with a free, objective check -- but only on cards whose mana value *is*
+    their cost, which is why every row is classified first.
+
+    Reads the card's facts back out of the stored `user_prompt` rather than
+    from the corpus, so this module still reaches neither a database nor a
+    model (`CLAUDE.md`). `cost_profile.facts_from_prompt` documents the one
+    bounded gap in doing it that way.
+    """
+    plain: list[tuple[float, float]] = []
+    early_values: list[float] = []
+    shapes: dict[str, int] = dict.fromkeys(SHAPE_ORDER, 0)
+    exceptions: set[str] = set()
+    exception_runs = 0
+
+    for row in rows:
+        raw_parsed = row["parsed_output"]
+        if not row["schema_valid"] or not raw_parsed:
+            continue
+        try:
+            parsed = json.loads(raw_parsed) if isinstance(raw_parsed, str) else raw_parsed
+        except (TypeError, ValueError):
+            continue
+        stage = parsed.get("game_stage") if isinstance(parsed, dict) else None
+        if not isinstance(stage, dict):
+            continue
+        try:
+            early = float(stage["early"])
+            mid = float(stage["mid"])
+            late = float(stage["late"])
+        except (KeyError, TypeError, ValueError):
+            continue
+
+        shapes[_curve_shape(early, mid, late)] += 1
+
+        prompt_text = row["user_prompt"] or ""
+        if has_cost_exception(facts_from_prompt(prompt_text)):
+            exception_runs += 1
+            exceptions.add(str(row["card_name"]))
+            continue
+
+        early_values.append(early)
+        match = _MANA_VALUE_LINE.search(prompt_text)
+        if match:
+            plain.append((float(match.group(1)), early))
+
+    if not any(shapes.values()) and not plain:
+        return None
+
+    return TimingScores(
+        plain_runs=len(plain),
+        exception_runs=exception_runs,
+        castability_corr=_correlation(plain),
+        early_mean=_mean(early_values),
+        shapes=shapes,
+        exception_cards=tuple(sorted(exceptions)),
+    )
 
 
 def score_accuracy(
@@ -634,6 +1645,7 @@ def summarize(
             counts=verdict_counts, other=other, unreviewed=unreviewed, total=len(rows)
         ),
         accuracy=score_accuracy(rows, ground_truth),
+        timing=score_timing(rows),
     )
 
 
@@ -648,15 +1660,32 @@ def _ordered(values: Iterable[str], preferred: Sequence[str]) -> tuple[str, ...]
 def build_report(
     rows: Iterable[Run],
     *,
+    raw_runs: Iterable[Run] = (),
+    sessions: Sequence[Mapping[str, Any]] = (),
+    pairs: Sequence[Mapping[str, Any]] = (),
     ground_truth: Mapping[str, dict] | None = None,
     db_path: Path | None = None,
 ) -> BenchmarkReport:
     """Aggregate raw `benchmark_runs` rows into every view the renderers need.
 
     Args:
-        rows: Anything yielding mappings with the `benchmark_runs` columns —
-            `store.iter_runs`' `sqlite3.Row` list in production, plain dicts in
-            tests.
+        rows: One row per (card, tier) — a card's *finished* answer, which
+            spans both of production's two calls. Callers reading the store
+            pass `merge_passes(store.iter_runs(...))`; the merge is the
+            caller's explicit step rather than something this function does to
+            its input, so that every aggregate below can state its unit as "a
+            card's answer" and mean it. Passing the store's unmerged rows
+            straight in would double-count every tier and silently halve its
+            schema-validity rate.
+        raw_runs: The unmerged rows, if available, for the per-pass table —
+            the one view that must not be merged, because a pass-one call and a
+            pass-two call differ in exactly the dimension a blended throughput
+            number hides. Optional: a report built without them simply omits
+            that section.
+        sessions: `benchmark_sessions` rows, which become the per-session tabs.
+            Optional so aggregation stays testable on bare run fixtures; a
+            report built without them renders the pooled views only.
+        pairs: `benchmark_pairs` rows — the recorded per-card picks.
         ground_truth: Hand labels keyed by oracle_id, or `None`. See
             `score_accuracy`; `None` today, always.
         db_path: Recorded on the report so both renderers can name the file the
@@ -669,6 +1698,7 @@ def build_report(
     within that, the fixed orders decide the sequence.
     """
     materialized = tuple(rows)
+    raw = tuple(raw_runs)
     buckets = _ordered((row["bucket"] for row in materialized), BUCKET_ORDER)
     tiers = _ordered((row["model_tier"] for row in materialized), TIER_ORDER)
 
@@ -698,6 +1728,7 @@ def build_report(
 
     return BenchmarkReport(
         runs=materialized,
+        raw_runs=raw,
         buckets=buckets,
         tiers=tiers,
         by_bucket_tier=by_bucket_tier,
@@ -706,6 +1737,10 @@ def build_report(
             list(materialized), bucket=None, model_tier=None, ground_truth=ground_truth
         ),
         ground_truth_available=ground_truth is not None,
+        sessions=build_session_views(
+            materialized, sessions, pairs, ground_truth=ground_truth
+        ),
+        per_pass=summarize_passes(raw),
         db_path=db_path,
     )
 
@@ -749,6 +1784,63 @@ def _tier_label(tier: str | None) -> str:
     return TIER_LABELS.get(tier, tier)
 
 
+def _group_label(stats: GroupStats) -> str:
+    """A tier label that admits when its numbers are not measurements.
+
+    Marked per row rather than only in the header: a bucket block can be
+    copied out of a terminal on its own, and a header warning left behind is
+    a warning that did not work.
+    """
+    label = _tier_label(stats.model_tier)
+    if stats.is_mixed:
+        return f"{label} [MIXED!]"
+    if stats.has_synthetic:
+        return f"{label}{SYNTHETIC_MARKER}"
+    return label
+
+
+def _run_tier_label(row: Run) -> str:
+    """Tier label for one individual run, marked if that row is synthetic.
+
+    Reads `model_name` straight off the row rather than going through a
+    `GroupStats`: the runs table renders rows one at a time, and in a mixed
+    store the group marker would tar measured rows with the same brush.
+    """
+    label = _tier_label(row["model_tier"])
+    if str(row["model_name"] or "").startswith(SYNTHETIC_MODEL_PREFIX):
+        return f"{label}{SYNTHETIC_MARKER}"
+    return label
+
+
+def _synthetic_banner(report: BenchmarkReport) -> list[str]:
+    """The header warning for a report built on seeded rows. Empty if clean."""
+    if not report.has_synthetic:
+        return []
+
+    if report.is_fully_synthetic:
+        headline = (
+            f"WARNING: all {report.total_runs:,} rows are SYNTHETIC demo data "
+            "-- every number below is fabricated."
+        )
+    else:
+        headline = (
+            f"WARNING: {report.synthetic_runs:,} of {report.total_runs:,} rows "
+            "are SYNTHETIC demo data, mixed in with measured runs."
+        )
+
+    return [
+        "  " + "=" * 72,
+        f"  {headline}",
+        "  Rows written by `seed-demo` to exercise this report before the",
+        "  benchmark existed. Latencies, tokens and verdicts were invented;",
+        "  no model was called. Delete the store (or use --db) and run the",
+        "  benchmark for real numbers. Affected groups are marked"
+        f" '{SYNTHETIC_MARKER.strip()}'.",
+        "  " + "=" * 72,
+        "",
+    ]
+
+
 def _accuracy_note(available: bool) -> str:
     if available:
         return "Accuracy scored against the supplied hand-labeled ground truth."
@@ -788,7 +1880,7 @@ _METRIC_COLUMNS: tuple[tuple[str, str], ...] = (
 def _metric_row(stats: GroupStats) -> list[str]:
     verdicts = stats.verdicts
     return [
-        _tier_label(stats.model_tier),
+        _group_label(stats),
         f"{stats.runs:,}",
         _pct(stats.schema_valid_rate, digits=0),
         _ms(stats.latency_p50),
@@ -852,6 +1944,7 @@ def render_text(report: BenchmarkReport) -> str:
         f"({_pct(overall.verdicts.review_coverage, digits=0)})"
     )
     lines.append("")
+    lines.extend(_synthetic_banner(report))
 
     if overall.runs == 0:
         lines.append("No runs recorded. Nothing to report yet.")
@@ -859,7 +1952,9 @@ def render_text(report: BenchmarkReport) -> str:
         lines.append(_accuracy_note(report.ground_truth_available))
         return "\n".join(lines) + "\n"
 
-    lines.append("PER BUCKET, TIERS SIDE BY SIDE  <- the primary view")
+    lines.extend(_render_sessions_text(report))
+
+    lines.append("PER BUCKET, TIERS SIDE BY SIDE  (pooled across sessions)")
     lines.append("")
     for bucket in report.buckets:
         group = report.bucket_view(bucket)
@@ -888,8 +1983,243 @@ def render_text(report: BenchmarkReport) -> str:
     )
     lines.append("")
 
+    lines.extend(_render_per_pass_text(report))
+    lines.extend(_render_timing_text(report))
     lines.extend(_render_accuracy_text(report))
     return "\n".join(lines) + "\n"
+
+
+_PER_PASS_COLUMNS: tuple[tuple[str, str], ...] = (
+    ("tier", "<"),
+    ("pass", "<"),
+    ("calls", ">"),
+    ("valid", ">"),
+    ("p50 ms", ">"),
+    ("in tok", ">"),
+    ("out tok", ">"),
+    ("prefill tok/s", ">"),
+    ("decode tok/s", ">"),
+)
+
+_PER_PASS_NOTE = (
+    "One row per model call, NOT per card -- the only table here that is not\n"
+    "    merged across the two passes, and the reason the unmerged rows are\n"
+    "    kept. Pass one prefills the taxonomy to generate seven fields; pass\n"
+    "    two prefills a short rubric plus the ladders pass one selected to\n"
+    "    generate two. Their prefill and decode rates are different numbers\n"
+    "    about different work, and averaging them produces one that describes\n"
+    "    neither. Rates come from the phase timers, never from total latency."
+)
+
+
+def _render_per_pass_text(report: BenchmarkReport) -> list[str]:
+    """Per-(tier, pass) call statistics. The view the merge cannot give."""
+    if not report.per_pass:
+        return []
+
+    lines = ["PER PASS  (call-level; not merged)", ""]
+    rows: list[tuple[str, ...]] = []
+    for tier in report.tiers:
+        for pass_name in ("one", "two"):
+            stats = report.per_pass.get((tier, pass_name))
+            if stats is None:
+                continue
+            rows.append(
+                (
+                    _tier_label(tier),
+                    pass_name,
+                    f"{stats.calls:,}",
+                    _pct(stats.schema_valid_rate, digits=0),
+                    _ms(stats.latency_p50),
+                    _count(stats.input_tokens_mean),
+                    _count(stats.output_tokens_mean),
+                    (
+                        DASH
+                        if stats.prefill_tokens_per_second is None
+                        else f"{stats.prefill_tokens_per_second:,.0f}"
+                    ),
+                    (
+                        DASH
+                        if stats.decode_tokens_per_second is None
+                        else f"{stats.decode_tokens_per_second:,.1f}"
+                    ),
+                )
+            )
+    lines.extend(_render_table(_PER_PASS_COLUMNS, rows, indent="    "))
+    lines.append("")
+    lines.append(f"    {_PER_PASS_NOTE}")
+    lines.append("")
+    return lines
+
+
+_TIMING_NOTE = (
+    "corr(mana value, early) over plain-cost cards only -- cards whose mana\n"
+    "    value is NOT their cost to function (convoke, equip costs, {X}, lands;\n"
+    "    ~17% of the corpus) are excluded, because a weak correlation is the\n"
+    "    right answer for them. Strongly negative is the target: a card you\n"
+    "    cannot cast until turn seven is not doing much on turn two."
+)
+
+
+def _render_timing_text(report: BenchmarkReport) -> list[str]:
+    """`game_stage` calibration -- the half of scoring that needs no labels."""
+    lines = ["GAME STAGE CALIBRATION", ""]
+
+    columns = (
+        ("bucket", "<"),
+        ("tier", "<"),
+        ("castability r", ">"),
+        ("early mean", ">"),
+        ("plain", ">"),
+        ("excepted", ">"),
+        *((shape, ">") for shape in SHAPE_ORDER),
+    )
+    rows = []
+    for bucket in report.buckets:
+        for stats in report.bucket_view(bucket):
+            scores = stats.timing
+            if scores is None or stats.is_empty:
+                continue
+            rows.append(
+                [
+                    bucket,
+                    _group_label(stats),
+                    DASH
+                    if scores.castability_corr is None
+                    else f"{scores.castability_corr:+.3f}",
+                    DASH if scores.early_mean is None else f"{scores.early_mean:.2f}",
+                    f"{scores.plain_runs:,}",
+                    f"{scores.exception_runs:,}",
+                    *(_pct(scores.shape_rate(shape), digits=0) for shape in SHAPE_ORDER),
+                ]
+            )
+
+    if not rows:
+        lines.append("    No parsed game_stage values recorded yet.")
+        lines.append("")
+        return lines
+
+    lines.extend(_render_table(columns, rows, indent="    "))
+    lines.append("")
+    lines.append(f"    {_TIMING_NOTE}")
+    lines.append("")
+    return lines
+
+
+_SESSION_COLUMNS: tuple[tuple[str, str], ...] = (
+    ("session", "<"),
+    ("buckets", "<"),
+    ("cards", ">"),
+    ("tiers", "<"),
+    ("status", "<"),
+    ("decided", ">"),
+    ("tally", "<"),
+    ("valid", ">"),
+    ("p50 ms", ">"),
+    ("prompt", "<"),
+)
+
+
+def _render_sessions_text(report: BenchmarkReport) -> list[str]:
+    """The paired view, first, because it is the only sound comparison.
+
+    Everything below it in the text report pools sessions. That pooling is
+    useful and is also the thing most likely to be misread, so the per-session
+    table comes first and the pooled headings say what they are.
+    """
+    lines = ["SESSIONS  <- the paired view: one card set, every tier", ""]
+    if not report.sessions:
+        lines.append(
+            "  No sessions recorded. `run --bucket hard --cards 30` creates one."
+        )
+        lines.append("")
+        return lines
+
+    rows = []
+    for view in report.sessions:
+        tally = view.wins
+        rows.append(
+            [
+                view.session_id + (f" ({view.label})" if view.label else ""),
+                "+".join(view.buckets),
+                f"{len(view.cards):,}",
+                ">".join(_tier_label(tier) for tier in view.tiers),
+                view.status + ("" if view.is_paired else " UNPAIRED"),
+                f"{tally.decided:,}/{len(view.cards):,}",
+                tally.tally,
+                " / ".join(
+                    _pct(view.by_tier[tier].schema_valid_rate, digits=0)
+                    for tier in view.tiers
+                ),
+                " / ".join(_ms(view.by_tier[tier].latency_p50) for tier in view.tiers),
+                view.prompt_sha256[:8],
+            ]
+        )
+    lines.extend(_render_table(_SESSION_COLUMNS, rows, indent="    "))
+    lines.append("")
+
+    for view in report.sessions:
+        tally = view.wins
+        if tally.decided == 0:
+            lines.append(
+                f"  {view.session_id}: no picks recorded yet "
+                f"({len(view.cards):,} card(s) to decide). "
+                f"`report --html` renders the side-by-side page to pick on."
+            )
+            continue
+        for tier in view.tiers:
+            interval = tally.interval(tier)
+            hours = view.projected_corpus_hours(tier)
+            lines.append(
+                f"  {view.session_id} {_tier_label(tier):10} "
+                f"wins {tally.counts.get(tier, 0):>3}/{tally.decided:<3} "
+                f"= {_pct(tally.rate(tier), digits=0):>5}"
+                + (
+                    f"  95% CI {_pct(interval[0], digits=0)}-{_pct(interval[1], digits=0)}"
+                    if interval
+                    else ""
+                )
+                + (
+                    f"  full corpus ~{hours:,.0f}h"
+                    if hours is not None
+                    else ""
+                )
+            )
+        if not view.is_paired:
+            lines.append(
+                f"    ! {view.session_id} is UNPAIRED: {view.missing_cells:,} "
+                "(card, tier) cell(s) missing, so these rates compare "
+                "different card sets. Finish it with "
+                f"`run --resume {view.session_id}`."
+            )
+
+    lines.append("")
+    lines.append(
+        "  tally = wins per tier in run order, then tie, then both-bad."
+    )
+    lines.append(
+        "  A win rate over ~30 cards carries roughly +/-18 points of 95%"
+    )
+    lines.append(
+        "  uncertainty: a near-even tally is noise, not a finding. The slower"
+    )
+    lines.append(
+        "  tier also has to win by enough to justify its full-corpus hours."
+    )
+    lines.append("")
+    if report.pools_mixed_prompts:
+        lines.append(
+            f"  ! These sessions ran against {len(report.prompt_fingerprints)} "
+            "different system prompts, so every pooled table below averages"
+        )
+        lines.append(
+            "    answers to different questions (the taxonomy, rubric and anchor"
+        )
+        lines.append(
+            "    ladders all live in that block). Read the sessions separately."
+        )
+        lines.append("")
+    return lines
 
 
 def _render_hard_gap_text(report: BenchmarkReport) -> list[str]:
@@ -921,7 +2251,7 @@ def _render_hard_gap_text(report: BenchmarkReport) -> list[str]:
     )
     rows = [
         [
-            _tier_label(gap.model_tier),
+            _group_label(report.by_bucket_tier[("hard", gap.model_tier)]),
             _signed_pct(gap.schema_valid_delta, digits=0),
             _signed_pct(gap.good_rate_delta, digits=0),
             _ms(gap.latency_p50),
@@ -936,7 +2266,7 @@ def _render_hard_gap_text(report: BenchmarkReport) -> list[str]:
     baseline = report.by_bucket_tier[("hard", BASELINE_TIER)]
     lines.append("")
     lines.append(
-        f"    baseline ({_tier_label(BASELINE_TIER)}): "
+        f"    baseline ({_group_label(baseline)}): "
         f"{_pct(baseline.schema_valid_rate, digits=0)} schema-valid, "
         f"{_pct(baseline.verdicts.good_rate, digits=0)} good of "
         f"{baseline.verdicts.reviewed:,} reviewed, "
@@ -1006,7 +2336,7 @@ def _render_accuracy_text(report: BenchmarkReport) -> list[str]:
             rows.append(
                 [
                     bucket,
-                    _tier_label(stats.model_tier),
+                    _group_label(stats),
                     DASH if scores.role_f1 is None else f"{scores.role_f1:.3f}",
                     DASH if scores.theme_f1 is None else f"{scores.theme_f1:.3f}",
                     DASH if scores.synergy_f1 is None else f"{scores.synergy_f1:.3f}",
@@ -1130,6 +2460,20 @@ p.note { margin: 6px 0 0; color: var(--text-muted); font-size: 12px; max-width: 
   font-size: 13px;
   max-width: 80ch;
 }
+/* Synthetic-data warning. Loud by design: this banner is the only thing
+   standing between a seeded store and a reader quoting invented latencies. */
+.synthetic {
+  border: 2px solid #b4541e;
+  background: #2a160c;
+  border-radius: 10px;
+  padding: 14px 18px;
+  margin: 18px 0 0;
+  color: #f3c89e;
+  font-size: 13px;
+  max-width: 90ch;
+}
+.synthetic strong { color: #ffb570; display: block; margin-bottom: 4px; font-size: 14px; }
+.synthetic code { color: #ffd9b0; }
 .unavailable {
   border-left: 3px solid var(--text-muted);
   background: var(--surface-1);
@@ -1205,19 +2549,179 @@ details pre {
 .pill.wrong { color: var(--critical); }
 .pill.none { color: var(--text-muted); }
 .empty { color: var(--text-muted); font-style: italic; padding: 24px 0; }
+
+/* --- tabs: one per session, plus the pooled Overview ------------------- */
+.tabs {
+  display: flex; flex-wrap: wrap; gap: 6px;
+  margin: 20px 0 0; padding-bottom: 10px;
+  border-bottom: 1px solid var(--axis);
+}
+.tab {
+  font: inherit; font-size: 12px; cursor: pointer;
+  padding: 5px 11px; border-radius: 999px;
+  background: var(--surface-1); color: var(--text-secondary);
+  border: 1px solid var(--border);
+}
+.tab:hover { color: var(--text-primary); }
+.tab[aria-selected="true"] {
+  background: var(--series-1); border-color: var(--series-1); color: #fff;
+}
+.panel-body[hidden] { display: none; }
+.panel-body > h2:first-child { margin-top: 24px; }
+
+/* Provenance strip. Deliberately dense and above the numbers. */
+.metagrid {
+  display: grid; gap: 8px 24px;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  font-size: 12px;
+}
+.meta-item { display: flex; gap: 10px; }
+.meta-key {
+  color: var(--text-muted); text-transform: uppercase;
+  letter-spacing: 0.05em; min-width: 72px; flex: none;
+}
+.tile .sublabel { font-size: 11px; color: var(--text-muted); margin-top: 4px; line-height: 1.4; }
+.tile .value .of { font-size: 13px; color: var(--text-muted); font-weight: 400; }
+
+/* Per-card comparison. One row per card, a column per tier. */
+table.compare td.missing { color: var(--text-muted); font-style: italic; }
+table.compare tbody.card-row + tbody.card-row { border-top: 0; }
+table.compare tbody.card-row tr.detail td { border-bottom: 1px solid var(--axis); padding-top: 0; }
+td.picks { white-space: normal; min-width: 240px; }
+label.pick {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 11px; color: var(--text-secondary); margin-right: 8px;
+}
+input.picknote {
+  font: inherit; font-size: 12px; margin-top: 4px; width: 100%;
+  padding: 3px 6px; border-radius: 6px;
+  background: var(--surface-1); color: var(--text-primary);
+  border: 1px solid var(--border);
+}
+.sides { display: flex; flex-wrap: wrap; gap: 14px; }
+.sides .side { flex: 1 1 320px; min-width: 0; }
+.sides .side.wide { flex-basis: 100%; }
+.sides h4 {
+  font-size: 11px; margin: 8px 0 2px; color: var(--text-muted);
+  text-transform: uppercase; letter-spacing: 0.05em;
+}
+.copybox { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.copybox .note { margin: 0; flex: 1 1 320px; }
+button.action {
+  font: inherit; font-size: 13px; cursor: pointer; padding: 6px 14px;
+  border-radius: 8px; background: var(--series-1); color: #fff;
+  border: 1px solid var(--series-1);
+}
+textarea.copyout {
+  flex-basis: 100%; font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  padding: 10px 12px; border-radius: 8px; resize: vertical;
+  background: var(--code-surface); color: var(--text-primary);
+  border: 1px solid var(--border);
+}
 """
 
 # No benchmark data is ever passed into JS -- the script only reads the DOM and
 # toggles `display`, so untrusted model output never leaves an escaped text node
 # and can never reach a string literal in a <script> block.
+#
+# The one place the script reads data rather than only toggling it is the pick
+# collector, and what it reads is deliberately restricted to ids and tier names
+# out of `data-` attributes: oracle ids, run ids, the chosen tier, plus a note
+# the *reader* typed. A card name goes along for legibility and is the only
+# corpus-derived string involved. No model output is ever read back.
 _JS = """
 (function () {
+  /* --- tabs ---------------------------------------------------------- */
+  var tabs = Array.prototype.slice.call(document.querySelectorAll('.tab'));
+  var panels = Array.prototype.slice.call(document.querySelectorAll('.panel-body'));
+
+  function select(name) {
+    var matched = false;
+    panels.forEach(function (panel) {
+      var isMatch = panel.id === 'panel-' + name;
+      panel.hidden = !isMatch;
+      if (isMatch) matched = true;
+    });
+    tabs.forEach(function (tab) {
+      tab.setAttribute(
+        'aria-selected', tab.getAttribute('data-tab') === name ? 'true' : 'false'
+      );
+    });
+    return matched;
+  }
+
+  tabs.forEach(function (tab) {
+    tab.addEventListener('click', function () {
+      var name = tab.getAttribute('data-tab');
+      if (select(name)) {
+        /* Replace rather than push: the tab bar is a view switch, not a
+           history of clicks to walk back through. */
+        history.replaceState(null, '', '#' + name);
+      }
+    });
+  });
+
+  var fromHash = (location.hash || '').replace(/^#/, '');
+  if (!fromHash || !select(fromHash)) {
+    var fallback = document.querySelector('.tab[data-default]') || tabs[0];
+    if (fallback) select(fallback.getAttribute('data-tab'));
+  }
+
+  /* --- collecting picks ---------------------------------------------- */
+  Array.prototype.slice.call(document.querySelectorAll('[data-copy]')).forEach(
+    function (button) {
+      button.addEventListener('click', function () {
+        var sessionId = button.getAttribute('data-copy');
+        var panel = document.getElementById('panel-session-' + sessionId);
+        var output = document.querySelector(
+          '[data-copyout="' + sessionId + '"]'
+        );
+        if (!panel || !output) return;
+
+        var picks = [];
+        Array.prototype.slice.call(panel.querySelectorAll('td.picks')).forEach(
+          function (cell) {
+            var chosen = cell.querySelector('input[type="radio"]:checked');
+            if (!chosen) return;
+            var note = cell.querySelector('input.picknote');
+            var runs = {};
+            try { runs = JSON.parse(cell.getAttribute('data-runs') || '{}'); }
+            catch (err) { runs = {}; }
+            picks.push({
+              card_oracle_id: cell.getAttribute('data-oracle'),
+              card_name: cell.getAttribute('data-card'),
+              winner: chosen.value,
+              runs: runs,
+              notes: note && note.value ? note.value : null
+            });
+          }
+        );
+
+        output.value = JSON.stringify(
+          { session_id: sessionId, picks: picks }, null, 1
+        );
+        output.focus();
+        output.select();
+        /* Best-effort only: a file:// page may have no clipboard permission,
+           which is why the text is left selected in a visible box rather than
+           copied invisibly and assumed to have worked. */
+        try {
+          if (navigator.clipboard) { navigator.clipboard.writeText(output.value); }
+          else { document.execCommand('copy'); }
+        } catch (err) { /* the box is the fallback */ }
+      });
+    }
+  );
+
+  /* --- the Overview's flat run table --------------------------------- */
   var table = document.getElementById('runs');
   if (!table) return;
   var bodies = Array.prototype.slice.call(table.tBodies);
   var count = document.getElementById('runcount');
+  /* Scoped to the Overview panel: the session tabs have their own controls,
+     and a global [data-filter] sweep would bind them together. */
   var inputs = Array.prototype.slice.call(
-    document.querySelectorAll('[data-filter]')
+    document.querySelectorAll('#panel-overview [data-filter]')
   );
 
   function applyFilters() {
@@ -1571,7 +3075,7 @@ def _runs_table_html(report: BenchmarkReport) -> str:
         main_cells = (
             f'<td class="txt">{_esc(row["card_name"])}</td>'
             f'<td class="txt">{_esc(row["bucket"])}</td>'
-            f'<td class="txt">{_esc(_tier_label(row["model_tier"]))}</td>'
+            f'<td class="txt">{_esc(_run_tier_label(row))}</td>'
             f'<td class="txt">{_esc(row["model_name"])}</td>'
             f'<td class="num">{"yes" if row["schema_valid"] else "<b>no</b>"}</td>'
             f'<td class="num">{_esc(_ms(_num(row, "latency_ms")))}</td>'
@@ -1585,8 +3089,8 @@ def _runs_table_html(report: BenchmarkReport) -> str:
         details = [
             _details("raw response", row["raw_response"], open_by_default=not row["schema_valid"]),
             _details("parsed output", row["parsed_output"]),
-            _details("user prompt (card facts)", row["user_prompt"]),
-            _details("system prompt (taxonomy + anchors + rubric)", row["system_prompt"]),
+            _details("user prompts (card facts; pass two's anchor ladders)", row["user_prompt"]),
+            _details("system prompts (taxonomy + calibration; rating rubric)", row["system_prompt"]),
         ]
         if row["human_notes"]:
             details.insert(0, _details("human notes", row["human_notes"], open_by_default=True))
@@ -1619,16 +3123,417 @@ def _details(summary: str, body: Any, *, open_by_default: bool = False) -> str:
     )
 
 
+def _tab_label(view: SessionView) -> str:
+    """What a session's chip says: enough to pick it out of a row of them."""
+    buckets = "+".join(view.buckets) or "?"
+    label = f"{view.session_id} &middot; {_esc(buckets)}&times;{view.cards_per_bucket}"
+    if view.label:
+        label += f" &middot; {_esc(view.label)}"
+    if view.is_synthetic:
+        label += _esc(SYNTHETIC_MARKER)
+    return label
+
+
+def _tabs_html(report: BenchmarkReport) -> str:
+    """The tab bar: Overview, then every session, newest first.
+
+    Buttons rather than links, and `aria-selected` rather than a class alone,
+    so the bar is operable and announced as what it is. The newest session is
+    the default panel: a maintainer opening this page almost always just ran
+    that one, and the pooled Overview is the view that needs a deliberate
+    click, not the other way round.
+    """
+    chips = [
+        '<button type="button" class="tab" role="tab" data-tab="overview" '
+        + ("" if report.sessions else 'data-default="1" ')
+        + 'aria-selected="false">Overview</button>'
+    ]
+    for index, view in enumerate(report.sessions):
+        chips.append(
+            f'<button type="button" class="tab" role="tab" '
+            f'data-tab="session-{_esc(view.session_id)}" '
+            + ('data-default="1" ' if index == 0 else "")
+            + f'aria-selected="false">{_tab_label(view)}</button>'
+        )
+    return f'<div class="tabs" role="tablist">{"".join(chips)}</div>'
+
+
+def _session_meta_html(view: SessionView) -> str:
+    """The provenance strip: everything that decides whether to trust the tab.
+
+    Deliberately above the numbers. A reader who scrolls past this has seen
+    which models answered, how many cards, under which prompt, and whether the
+    session is complete — the four facts that make the rest of the panel mean
+    anything.
+    """
+    rows = [
+        ("session", f"{view.session_id}" + (f" ({view.label})" if view.label else "")),
+        ("status", view.status + (" -- PAIRED" if view.is_paired else " -- not paired")),
+        (
+            "cards",
+            f"{len(view.cards):,} from {'+'.join(view.buckets) or '?'} "
+            f"({view.cards_per_bucket} per bucket), drawn with seed {view.draw_seed}",
+        ),
+        (
+            "tiers",
+            " then ".join(
+                f"{_tier_label(tier)} = {view.models.get(tier, '?')}"
+                for tier in view.tiers
+            ),
+        ),
+        (
+            "decoding",
+            f"num_ctx {view.num_ctx:,} &middot; temperature {view.temperature} "
+            f"&middot; seed {view.model_seed}",
+        ),
+        ("prompts", f"sha256 {view.prompt_sha256[:16]}"),
+        ("grammars", f"sha256 {view.schemas_sha256[:16]}"),
+        (
+            "sample",
+            f"{view.sample_path or '(unrecorded)'} (seed {view.sample_seed})",
+        ),
+        ("ran", f"{view.started_at} &rarr; {view.finished_at or '(unfinished)'}"),
+    ]
+    cells = "".join(
+        f'<div class="meta-item"><span class="meta-key">{_esc(key)}</span>'
+        f"<span>{value}</span></div>"
+        for key, value in rows
+    )
+    warning = ""
+    if not view.is_paired:
+        warning = (
+            '<p class="note"><strong>This session is not a like-for-like '
+            f"comparison.</strong> {view.missing_cells:,} of its "
+            f"{view.expected_calls:,} (card, tier) cells have no row, so the "
+            "tiers did not answer the same cards. Finish it with "
+            f"<code>run --resume {_esc(view.session_id)}</code> before reading "
+            "the win rate below.</p>"
+        )
+    return f'<div class="panel"><div class="metagrid">{cells}</div>{warning}</div>'
+
+
+def _win_rate_html(view: SessionView) -> str:
+    """The session's verdict, with the uncertainty it has to be read with."""
+    tally = view.wins
+    if tally.decided == 0:
+        return (
+            '<div class="unavailable">No cards in this session have a pick yet. '
+            "Pick a winner per card in the table below, copy the result out, and "
+            f"record it with <code>pair-verdict --from picks.json</code>. "
+            f"{len(view.cards):,} card(s) are waiting.</div>"
+        )
+
+    tiles = []
+    for tier in view.tiers:
+        rate = tally.rate(tier)
+        interval = tally.interval(tier)
+        hours = view.projected_corpus_hours(tier)
+        detail = (
+            f"95% CI {_pct(interval[0], digits=0)}-{_pct(interval[1], digits=0)}"
+            if interval
+            else DASH
+        )
+        corpus = (
+            f"{hours:,.0f}h for {CORPUS_CARD_COUNT:,} cards"
+            if hours is not None
+            else "corpus cost unknown"
+        )
+        tiles.append(
+            f'<div class="tile"><div class="value">{_esc(_pct(rate, digits=0))}</div>'
+            f'<div class="label">{_esc(_tier_label(tier))} wins</div>'
+            f'<div class="sublabel">{_esc(detail)}<br />{_esc(corpus)}</div></div>'
+        )
+
+    for outcome in VERDICT_NO_WINNER:
+        tiles.append(
+            f'<div class="tile"><div class="value">{tally.counts.get(outcome, 0):,}</div>'
+            f'<div class="label">{_esc(outcome.replace("_", " "))}</div></div>'
+        )
+    tiles.append(
+        f'<div class="tile"><div class="value">{tally.decided:,}'
+        f'<span class="of">/{len(view.cards):,}</span></div>'
+        '<div class="label">cards decided</div></div>'
+    )
+
+    note = (
+        '<p class="note"><strong>Read the interval, not the percentage.</strong> '
+        f"This session decided {tally.decided:,} card(s) (tally "
+        f"{_esc(tally.tally)} in tier order, then tie, then both-bad). At this "
+        "size a win rate carries roughly &plusmn;18 points of 95% uncertainty, "
+        "so a near-even split is noise and only a lopsided one is a finding. "
+        "Note also that the slower tier has to win by enough to justify its "
+        "projected corpus hours above.</p>"
+    )
+    return f'<div class="tiles">{"".join(tiles)}</div>{note}'
+
+
+def _run_cell_html(run: Run | None) -> str:
+    """One tier's answer to one card, as a compact cell."""
+    if run is None:
+        return '<td class="num missing">no row</td>'
+    valid = "yes" if run["schema_valid"] else "<b>INVALID</b>"
+    latency = _ms(_num(run, "latency_ms"))
+    verdict = run["human_verdict"]
+    verdict_html = (
+        f' {_verdict_pill(verdict)}' if verdict not in (None, "") else ""
+    )
+    return f'<td class="num">{valid} &middot; {_esc(latency)} ms{verdict_html}</td>'
+
+
+def _agreement_cell_html(card: CardComparison) -> str:
+    if not card.complete:
+        return '<td class="num missing">--</td>'
+    agreement = card.agreement
+    if agreement is None or agreement.score is None:
+        return '<td class="num missing">unknown</td>'
+    detail = " &middot; ".join(
+        f"{field[:4]} {_pct(value, digits=0)}"
+        for field, value in agreement.set_jaccard.items()
+        if value is not None
+    )
+    return (
+        f'<td class="num"><span title="{_esc(detail)}">'
+        f"{_esc(_pct(agreement.score, digits=0))}</span></td>"
+    )
+
+
+def _pick_cell_html(view: SessionView, card: CardComparison) -> str:
+    """The radio group a maintainer clicks, plus a notes box.
+
+    Carries the run ids in a `data-` attribute so the copy-out can point a
+    verdict at the exact rows it was formed against. Ids and tier names only —
+    no model-written text ever reaches an attribute the script reads, which is
+    the same rule the filter script follows.
+    """
+    name = f"pick-{view.session_id}-{card.oracle_id}"
+    options = [(tier, _tier_label(tier)) for tier in view.tiers]
+    options += [(outcome, outcome.replace("_", " ")) for outcome in VERDICT_NO_WINNER]
+    radios = "".join(
+        f'<label class="pick"><input type="radio" name="{_esc(name)}" '
+        f'value="{_esc(value)}"'
+        + (" checked" if card.winner == value else "")
+        + f" />{_esc(label)}</label>"
+        for value, label in options
+    )
+    runs_json = json.dumps(
+        {tier: int(run["id"]) for tier, run in card.runs.items()}, sort_keys=True
+    )
+    notes = _esc(card.pair_notes or "")
+    return (
+        f'<td class="txt picks" data-oracle="{_esc(card.oracle_id)}" '
+        f'data-card="{_esc(card.name)}" data-runs="{_esc(runs_json)}">'
+        f"{radios}"
+        f'<input class="picknote" type="text" placeholder="notes" '
+        f'value="{notes}" />'
+        "</td>"
+    )
+
+
+def _comparison_table_html(view: SessionView) -> str:
+    """The session's cards, every tier's answer side by side.
+
+    **Sorted by disagreement, descending**, and that is the point of the view.
+    On a 30-card session the cards where the tiers said different things are
+    where a human read changes a conclusion; the ones they agree on mostly
+    confirm each other. Incomplete cards sort above everything, because a
+    missing cell is a hole in the comparison rather than a result in it.
+    """
+    if not view.cards:
+        return '<p class="empty">This session has no cards recorded.</p>'
+
+    headers = ['<th class="txt">card</th>', '<th class="txt">bucket</th>']
+    headers += [
+        f'<th class="num">{_esc(_tier_label(tier))}</th>' for tier in view.tiers
+    ]
+    headers += ['<th class="num">agree</th>', '<th class="txt">pick</th>']
+
+    bodies = []
+    for card in view.disagreement_order:
+        cells = [
+            f'<td class="txt">{_esc(card.name)}</td>',
+            f'<td class="txt">{_esc(card.bucket)}</td>',
+        ]
+        cells += [_run_cell_html(card.runs.get(tier)) for tier in view.tiers]
+        cells.append(_agreement_cell_html(card))
+        cells.append(_pick_cell_html(view, card))
+
+        details = []
+        for tier in view.tiers:
+            run = card.runs.get(tier)
+            if run is None:
+                continue
+            details.append(
+                '<div class="side">'
+                f"<h4>{_esc(_tier_label(tier))} &middot; "
+                f'{_esc(run["model_name"])}</h4>'
+                + _details(
+                    "raw response",
+                    run["raw_response"],
+                    open_by_default=not run["schema_valid"],
+                )
+                + _details("parsed output", run["parsed_output"])
+                + (
+                    _details("human notes", run["human_notes"], open_by_default=True)
+                    if run["human_notes"]
+                    else ""
+                )
+                + "</div>"
+            )
+        any_run = next(iter(card.runs.values()), None)
+        if any_run is not None:
+            details.append(
+                '<div class="side wide">'
+                + _details("user prompt (card facts)", any_run["user_prompt"])
+                + "</div>"
+            )
+
+        span = len(view.tiers) + 4
+        bodies.append(
+            f'<tbody class="card-row">'
+            f'<tr>{"".join(cells)}</tr>'
+            f'<tr class="detail"><td class="txt" colspan="{span}">'
+            f'<div class="sides">{"".join(details)}</div>'
+            "</td></tr></tbody>"
+        )
+
+    return (
+        '<div class="panel"><table class="compare">'
+        f'<thead><tr>{"".join(headers)}</tr></thead>'
+        + "".join(bodies)
+        + "</table></div>"
+    )
+
+
+def _copy_box_html(view: SessionView) -> str:
+    """The hand-off: picks out of the page and into the store.
+
+    The page never writes to the database, and should not be able to — the
+    reporting layer is read-only by design (`store.py`'s split), and a browser
+    with a write path to measured evidence is a worse trade than one copy-paste
+    step.
+    """
+    return (
+        '<div class="panel copybox">'
+        f'<button type="button" class="action" data-copy="{_esc(view.session_id)}">'
+        "Collect picks</button>"
+        '<span class="note">Click, then copy the JSON below and run '
+        f"<code>python -m knowledge_pipeline.benchmark pair-verdict --from "
+        f"picks.json</code></span>"
+        f'<textarea class="copyout" data-copyout="{_esc(view.session_id)}" rows="6" '
+        'readonly placeholder="Picks appear here."></textarea>'
+        "</div>"
+    )
+
+
+def _session_panel_html(view: SessionView) -> str:
+    """One tab's contents: provenance, verdict, cards, then per-tier stats."""
+    return (
+        f'<section class="panel-body session-panel" '
+        f'id="panel-session-{_esc(view.session_id)}" role="tabpanel" hidden>'
+        f"<h2>Session {_esc(view.session_id)}</h2>"
+        '<p class="sub">One card set, every tier, in serial succession -- the '
+        "only scope in which &quot;which model is better&quot; is a well-posed "
+        "question.</p>"
+        + _session_meta_html(view)
+        + "<h3>Which tier won</h3>"
+        + _win_rate_html(view)
+        + "<h3>Card by card</h3>"
+        '<p class="sub">Sorted by disagreement: the cards the tiers answered '
+        "differently are the ones worth reading. Expand a row for both raw "
+        "responses.</p>"
+        + _comparison_table_html(view)
+        + _copy_box_html(view)
+        + "<h3>Per tier, this session only</h3>"
+        f'<div class="panel">{_metric_table_html([view.by_tier[t] for t in view.tiers])}</div>'
+        "</section>"
+    )
+
+
+def _per_pass_html(report: BenchmarkReport) -> str:
+    """The one table on the page that counts calls rather than cards.
+
+    Everything else merges production's two calls into one answer per card,
+    which is right for every question about *quality* and wrong for every
+    question about *speed*: the two passes send prompts of very different sizes
+    and generate answers of very different lengths. Rates come from the phase
+    timers rather than from total latency, for the reason the blended-rate
+    mistake in `docs/lessons-learned.md` records.
+    """
+    if not report.per_pass:
+        return '<p class="empty">No calls recorded.</p>'
+
+    header = (
+        "<thead><tr>"
+        '<th class="txt">tier</th><th class="txt">pass</th>'
+        '<th class="num">calls</th><th class="num">schema valid</th>'
+        '<th class="num">p50 latency</th><th class="num">in tok</th>'
+        '<th class="num">out tok</th><th class="num">prefill tok/s</th>'
+        '<th class="num">decode tok/s</th>'
+        "</tr></thead>"
+    )
+    body: list[str] = []
+    for tier in report.tiers:
+        for pass_name in ("one", "two"):
+            stats = report.per_pass.get((tier, pass_name))
+            if stats is None:
+                continue
+            body.append(
+                "<tr>"
+                f'<td class="txt">{_esc(_tier_label(tier))}</td>'
+                f'<td class="txt">{_esc(pass_name)}</td>'
+                f'<td class="num">{stats.calls:,}</td>'
+                f'<td class="num">{_esc(_pct(stats.schema_valid_rate, digits=0))}</td>'
+                f'<td class="num">{_esc(_ms(stats.latency_p50))}</td>'
+                f'<td class="num">{_esc(_count(stats.input_tokens_mean))}</td>'
+                f'<td class="num">{_esc(_count(stats.output_tokens_mean))}</td>'
+                f'<td class="num">'
+                + (
+                    DASH
+                    if stats.prefill_tokens_per_second is None
+                    else f"{stats.prefill_tokens_per_second:,.0f}"
+                )
+                + "</td>"
+                f'<td class="num">'
+                + (
+                    DASH
+                    if stats.decode_tokens_per_second is None
+                    else f"{stats.decode_tokens_per_second:,.1f}"
+                )
+                + "</td></tr>"
+            )
+
+    return (
+        '<p class="sub">Call-level, and the only table here not merged across '
+        "the two passes. Pass one prefills the taxonomy to answer seven fields; "
+        "pass two prefills a short rubric plus the ladders pass one selected to "
+        "answer two. One blended rate would describe neither.</p>"
+        f'<div class="panel"><table>{header}<tbody>'
+        + "".join(body)
+        + "</tbody></table></div>"
+    )
+
+
 def render_html(report: BenchmarkReport) -> str:
     """The shareable artifact: one self-contained file, readable offline.
 
-    Structured in the same order as the text report and for the same reason --
-    stat tiles, then the per-bucket comparison and its charts, then the
-    hard-bucket gap, then the roll-up, then every individual run. A reader who
-    stops after the first screen should have seen the comparison that decides
-    something, not an overall average.
+    **Tabbed by session**, with everything cross-session on an Overview tab.
+    That split is not a layout preference: a session is the only scope whose
+    tiers are known to have answered the same cards under the same prompt, so
+    it is the only scope where a comparison is sound. Pooling sessions is still
+    offered -- a prompt revision or a new model release produces a second
+    session, and the trend across them is worth seeing -- but it is a
+    deliberate click away, and the Overview says out loud when the sessions it
+    pools do not share a prompt.
+
+    Within the Overview, the order is the same as the text report and for the
+    same reason -- stat tiles, then the per-bucket comparison and its charts,
+    then the hard-bucket gap, then the roll-up, then every individual run. A
+    reader who stops after the first screen should have seen the comparison
+    that decides something, not an overall average.
     """
-    tier_labels = [_tier_label(tier) for tier in report.tiers]
+    # Marked labels, so a chart lifted out of the page as an image still
+    # says which bars are fabricated.
+    tier_labels = [_group_label(report.by_tier[tier]) for tier in report.tiers]
     overall = report.overall
     generated = f"{report.generated_at:%Y-%m-%d %H:%M} UTC"
     source = _esc(report.db_path) if report.db_path else "rows supplied directly"
@@ -1677,13 +3582,32 @@ def render_html(report: BenchmarkReport) -> str:
             f'<div class="panel">{_metric_table_html([report.by_tier[tier] for tier in report.tiers])}</div>'
         )
 
+    sections.append("<h2>Per pass</h2>" + _per_pass_html(report))
+    sections.append(
+        "<h2>Game stage calibration</h2>" + _timing_html(report)
+    )
     sections.append("<h2>Accuracy vs. ground truth</h2>" + _accuracy_html(report))
     sections.append(
         "<h2>Every run</h2>"
-        '<p class="sub">Scoring is human review: 300 cards per tier is small '
-        "enough to read every output directly. Prompts and responses are "
-        "collapsed, not omitted.</p>" + _runs_table_html(report)
+        '<p class="sub">Scoring is human review: a session is small enough to '
+        "read every output directly. Prompts and responses are collapsed, not "
+        "omitted.</p>" + _runs_table_html(report)
     )
+
+    overview = (
+        '<section class="panel-body" id="panel-overview" role="tabpanel" hidden>'
+        "<h2>Across every session</h2>"
+        '<p class="sub">Pooled. Sound only to the extent the sessions below '
+        "are comparable -- same prompt, same decoding settings -- which is "
+        "what the fingerprint check reports.</p>"
+        + _prompt_pooling_html(report)
+        + _sessions_table_html(report)
+        + f'<div class="tiles">{tiles_html}</div>'
+        + "".join(sections)
+        + "</section>"
+    )
+
+    panels = [overview] + [_session_panel_html(view) for view in report.sessions]
 
     return (
         "<!doctype html>\n"
@@ -1692,11 +3616,109 @@ def render_html(report: BenchmarkReport) -> str:
         "<title>Tome metadata benchmark</title>"
         f"<style>{_CSS}</style></head><body><main>"
         "<h1>Tome metadata benchmark</h1>"
-        f'<p class="sub">Local vs. frontier metadata generation, scored per difficulty bucket.</p>'
-        f'<p class="meta">source <code>{source}</code> &middot; generated {_esc(generated)}</p>'
-        f'<div class="tiles">{tiles_html}</div>'
-        + "".join(sections)
+        '<p class="sub">Local tiers compared on one card set at a time. Each '
+        "tab is one session: the same cards, every tier, in serial "
+        "succession.</p>"
+        f'<p class="meta">source <code>{source}</code> &middot; generated '
+        f"{_esc(generated)} &middot; {len(report.sessions):,} session(s)</p>"
+        + _synthetic_banner_html(report)
+        + _tabs_html(report)
+        + "".join(panels)
         + f"</main><script>{_JS}</script></body></html>\n"
+    )
+
+
+def _prompt_pooling_html(report: BenchmarkReport) -> str:
+    """Say when the pooled tables are mixing runs made against two prompts."""
+    if not report.pools_mixed_prompts:
+        return ""
+    fingerprints = ", ".join(value[:12] for value in report.prompt_fingerprints)
+    return (
+        '<div class="synthetic">'
+        f"<strong>These sessions ran against {len(report.prompt_fingerprints)} "
+        "different system prompts.</strong>"
+        "Every pooled number on this tab therefore averages answers to "
+        "different questions: the closed taxonomy, the rating rubric and the "
+        "anchor ladders all live in that block, so a rating made under one "
+        "version is not on the same scale as a rating made under another. "
+        f"Prompt fingerprints seen: <code>{_esc(fingerprints)}</code>. Compare "
+        "the session tabs individually instead."
+        "</div>"
+    )
+
+
+def _sessions_table_html(report: BenchmarkReport) -> str:
+    """Every session as one row: what it measured and how it landed."""
+    if not report.sessions:
+        return (
+            '<div class="unavailable">No sessions recorded. '
+            "<code>run --bucket hard --cards 30</code> creates one.</div>"
+        )
+
+    head = (
+        "<tr><th class='txt'>session</th><th class='txt'>buckets</th>"
+        "<th class='num'>cards</th><th class='txt'>tiers</th>"
+        "<th class='txt'>status</th><th class='num'>decided</th>"
+        "<th class='txt'>tally</th><th class='num'>valid</th>"
+        "<th class='num'>p50 ms</th><th class='txt'>prompt</th>"
+        "<th class='txt'>ran</th></tr>"
+    )
+    rows = []
+    for view in report.sessions:
+        tally = view.wins
+        valid = " / ".join(
+            _pct(view.by_tier[tier].schema_valid_rate, digits=0) for tier in view.tiers
+        )
+        p50 = " / ".join(
+            _ms(view.by_tier[tier].latency_p50) for tier in view.tiers
+        )
+        label = view.session_id + (f" ({view.label})" if view.label else "")
+        rows.append(
+            f"<tr><td class='txt'>{_esc(label)}</td>"
+            f"<td class='txt'>{_esc('+'.join(view.buckets))}</td>"
+            f"<td class='num'>{len(view.cards):,}</td>"
+            f"<td class='txt'>{_esc(' then '.join(_tier_label(t) for t in view.tiers))}</td>"
+            f"<td class='txt'>{_esc(view.status)}"
+            + ("" if view.is_paired else " <b>unpaired</b>")
+            + "</td>"
+            f"<td class='num'>{tally.decided:,}</td>"
+            f"<td class='txt'>{_esc(tally.tally)}</td>"
+            f"<td class='num'>{_esc(valid)}</td>"
+            f"<td class='num'>{_esc(p50)}</td>"
+            f"<td class='txt'><code>{_esc(view.prompt_sha256[:8])}</code></td>"
+            f"<td class='txt'>{_esc(view.started_at)}</td></tr>"
+        )
+    return (
+        f'<div class="panel"><table><thead>{head}</thead>'
+        f'<tbody>{"".join(rows)}</tbody></table></div>'
+    )
+
+
+def _synthetic_banner_html(report: BenchmarkReport) -> str:
+    """The HTML twin of `_synthetic_banner`. Empty string if the store is clean."""
+    if not report.has_synthetic:
+        return ""
+
+    if report.is_fully_synthetic:
+        headline = (
+            f"All {report.total_runs:,} rows are synthetic demo data -- "
+            "every number on this page is fabricated."
+        )
+    else:
+        headline = (
+            f"{report.synthetic_runs:,} of {report.total_runs:,} rows are "
+            "synthetic demo data, mixed in with measured runs."
+        )
+
+    return (
+        '<div class="synthetic">'
+        f"<strong>{_esc(headline)}</strong>"
+        "These rows were written by <code>seed-demo</code> to exercise this "
+        "report before the benchmark existed. Latencies, token counts and "
+        "verdicts were invented; no model was called. Delete the store (or "
+        "pass <code>--db</code>) and run the benchmark for real numbers. "
+        f"Affected rows are marked <code>{_esc(SYNTHETIC_MARKER.strip())}</code>."
+        "</div>"
     )
 
 
@@ -1790,7 +3812,8 @@ def _gap_html(report: BenchmarkReport) -> str:
     for gap in gaps:
         rows.append(
             "<tr>"
-            f'<td class="txt">{_esc(_tier_label(gap.model_tier))}</td>'
+            f'<td class="txt">'
+            f'{_esc(_group_label(report.by_bucket_tier[("hard", gap.model_tier)]))}</td>'
             f'<td class="num">{_esc(_signed_pct(gap.schema_valid_delta, digits=0))}</td>'
             f'<td class="num">{_esc(_signed_pct(gap.good_rate_delta, digits=0))}</td>'
             f'<td class="num">{_esc(_ms(gap.latency_p50))}</td>'
@@ -1813,7 +3836,7 @@ def _gap_html(report: BenchmarkReport) -> str:
         '<th class="num">vs baseline</th><th class="num">$/run</th>'
         '<th class="num">$ saved/run</th>'
         "</tr></thead><tbody>" + "".join(rows) + "</tbody></table>"
-        f'<p class="callout">Baseline {_esc(_tier_label(BASELINE_TIER))}: '
+        f'<p class="callout">Baseline {_esc(_group_label(baseline))}: '
         f"{_esc(_pct(baseline.schema_valid_rate, digits=0))} schema-valid, "
         f"{_esc(_pct(baseline.verdicts.good_rate, digits=0))} good of "
         f"{baseline.verdicts.reviewed:,} reviewed, "
@@ -1849,7 +3872,7 @@ def _accuracy_html(report: BenchmarkReport) -> str:
             rows.append(
                 "<tr>"
                 f'<td class="txt">{_esc(bucket)}</td>'
-                f'<td class="txt">{_esc(_tier_label(stats.model_tier))}</td>'
+                f'<td class="txt">{_esc(_group_label(stats))}</td>'
                 f'<td class="num">{_esc(number(scores.role_f1))}</td>'
                 f'<td class="num">{_esc(number(scores.theme_f1))}</td>'
                 f'<td class="num">{_esc(number(scores.synergy_f1))}</td>'
@@ -1869,34 +3892,114 @@ def _accuracy_html(report: BenchmarkReport) -> str:
     )
 
 
+def _timing_html(report: BenchmarkReport) -> str:
+    """The `game_stage` calibration panel.
+
+    Carries the exception cards by name under the table. They are excluded
+    from the correlation, and a number that silently drops rows should say
+    which ones -- the same rule the cap-logging note in `CLAUDE.md` states.
+    """
+    rows = []
+    named: list[str] = []
+    for bucket in report.buckets:
+        for stats in report.bucket_view(bucket):
+            scores = stats.timing
+            if scores is None or stats.is_empty:
+                continue
+            named.extend(scores.exception_cards)
+            corr = (
+                DASH
+                if scores.castability_corr is None
+                else f"{scores.castability_corr:+.3f}"
+            )
+            shape_cells = "".join(
+                f'<td class="num">{_esc(_pct(scores.shape_rate(shape), digits=0))}</td>'
+                for shape in SHAPE_ORDER
+            )
+            rows.append(
+                "<tr>"
+                f'<td class="txt">{_esc(bucket)}</td>'
+                f'<td class="txt">{_esc(_group_label(stats))}</td>'
+                f'<td class="num">{_esc(corr)}</td>'
+                f'<td class="num">'
+                f'{DASH if scores.early_mean is None else f"{scores.early_mean:.2f}"}'
+                "</td>"
+                f'<td class="num">{scores.plain_runs:,}</td>'
+                f'<td class="num">{scores.exception_runs:,}</td>'
+                f"{shape_cells}"
+                "</tr>"
+            )
+
+    if not rows:
+        return '<div class="panel"><p>No parsed game_stage values recorded yet.</p></div>'
+
+    shape_headers = "".join(f'<th class="num">{_esc(s)}</th>' for s in SHAPE_ORDER)
+    excluded = ""
+    if named:
+        unique = sorted(set(named))
+        excluded = (
+            "<p><strong>Excluded from the correlation</strong> "
+            f"({len(unique)} cards whose mana value is not their cost to "
+            f"function): {_esc(', '.join(unique))}</p>"
+        )
+
+    return (
+        '<div class="panel"><table><thead><tr>'
+        '<th class="txt">bucket</th><th class="txt">tier</th>'
+        '<th class="num">castability r</th><th class="num">early mean</th>'
+        '<th class="num">plain</th><th class="num">excepted</th>'
+        f"{shape_headers}"
+        "</tr></thead><tbody>" + "".join(rows) + "</tbody></table>"
+        f"<p>{_esc(_TIMING_NOTE.replace(chr(10), ' ').replace('    ', ''))}</p>"
+        f"{excluded}</div>"
+    )
+
+
 # --------------------------------------------------------------------------
 # CLI
 # --------------------------------------------------------------------------
 
 
-def load_rows(
+def load_store(
     *,
     db_path: Path | None = None,
+    session_id: str | None = None,
     bucket: str | None = None,
     model_tier: str | None = None,
-) -> tuple[list[Run], Path]:
-    """Pull rows from the benchmark store, returning them and the file read.
+) -> tuple[list[Run], list[Run], list[Run], Path]:
+    """Pull runs, sessions and pairs from the store. Returns them and the file.
 
     `store` is imported here rather than at module scope on purpose: everything
     above operates on plain mappings and has no dependency on sqlite at all,
     which is what lets the aggregation be tested on fixtures and reused over any
     other row source later. It also means a missing or half-built store fails
     at the CLI boundary with a clear error instead of at import time.
+
+    `session_id` scopes all three, so `--session` renders one tab's worth of
+    data rather than filtering a page that still claims to summarize the store.
+    The run rows arrive with the session's `system_prompt` joined in under that
+    name (`store.iter_runs`), so nothing downstream knows the column moved.
     """
     from . import store
 
     resolved = Path(db_path) if db_path is not None else Path(store.DEFAULT_DB_PATH)
     connection = store.connect(resolved)
     try:
-        return (
-            list(store.iter_runs(connection, bucket=bucket, model_tier=model_tier)),
-            resolved,
+        runs = list(
+            store.iter_runs(
+                connection,
+                session_id=session_id,
+                bucket=bucket,
+                model_tier=model_tier,
+            )
         )
+        if session_id is not None:
+            found = store.get_session(connection, session_id)
+            sessions = [found] if found is not None else []
+        else:
+            sessions = list(store.iter_sessions(connection))
+        pairs = list(store.iter_pairs(connection, session_id=session_id))
+        return runs, sessions, pairs, resolved
     finally:
         connection.close()
 
@@ -1932,6 +4035,15 @@ def _build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--session",
+        metavar="S-NNN",
+        help=(
+            "Only this session -- its runs, its own tab, its picks. The "
+            "paired comparison the benchmark is for lives at this scope; "
+            "without it the page shows every session plus the pooled views."
+        ),
+    )
+    parser.add_argument(
         "--bucket",
         metavar="B",
         help="Only runs in this difficulty bucket (easy/medium/hard).",
@@ -1953,8 +4065,11 @@ def main(argv: list[str] | None = None) -> int:
     args = _build_parser().parse_args(argv)
 
     try:
-        rows, resolved = load_rows(
-            db_path=args.db, bucket=args.bucket, model_tier=args.tier
+        rows, sessions, pairs, resolved = load_store(
+            db_path=args.db,
+            session_id=args.session,
+            bucket=args.bucket,
+            model_tier=args.tier,
         )
     except FileNotFoundError:
         print(
@@ -1964,11 +4079,28 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 1
 
+    if args.session and not sessions:
+        print(
+            f"No session {args.session!r} in {resolved}. "
+            "`benchmark sessions` lists what is there.",
+            file=sys.stderr,
+        )
+        return 1
+
     # Filtering to one bucket or one tier deliberately does not disable the
     # comparison sections -- they render their own "nothing to compare against"
     # state, which is more honest than a table that looks complete because the
     # other tiers were filtered out upstream.
-    report = build_report(rows, db_path=resolved)
+    # The merge is explicit here rather than inside `build_report`: the store
+    # holds one row per (card, tier, pass) and every view but the per-pass
+    # table reasons about a card's finished answer. See `merge_passes`.
+    report = build_report(
+        merge_passes(rows),
+        raw_runs=rows,
+        sessions=sessions,
+        pairs=pairs,
+        db_path=resolved,
+    )
 
     if args.html:
         args.html.parent.mkdir(parents=True, exist_ok=True)

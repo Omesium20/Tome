@@ -16,6 +16,17 @@ httpx>=0.27
 # confirmed against the installed 0.120.0, which already has it; 0.28 (the old
 # floor) predates the parameter existing at all.
 anthropic>=0.120
+# The official Ollama client, used only by the metadata benchmark's local tiers
+# (knowledge_pipeline/benchmark/, docs/benchmarking-and-testing.md). Three
+# features are load-bearing: `format=<JSON schema>` for grammar-constrained
+# decoding against CardMetadataBlueprint, `options.num_ctx` (the default 4096
+# would silently truncate the ~10k-token anchor block out of the system
+# prompt), and the response's prompt_eval_count/eval_count/total_duration,
+# which are what benchmark_runs records instead of a billed cost.
+# This is a knowledge-plane maintainer dependency. It is NOT the client-facing
+# `ollama` ModelProvider in docs/model-providers.md -- see that file and
+# metadata_generator/model_backend.py for why those stay separate.
+ollama>=0.6
 sentence-transformers>=3.0
 
 # persistence

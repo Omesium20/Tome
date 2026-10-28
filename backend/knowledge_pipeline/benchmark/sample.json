@@ -1,0 +1,4832 @@
+{
+ "generated_at": "2026-10-05T11:29:36Z",
+ "seed": 20261001,
+ "reviewed": false,
+ "corpus": {
+  "cards_in_corpus": 34831,
+  "commander_legal_eligible": 31575,
+  "anchor_cards_excluded": 255,
+  "tercile_size": 10525,
+  "difficulty_score_bounds": {
+   "easy": {
+    "min": 0.0,
+    "max": 5.26
+   },
+   "medium": {
+    "min": 5.26,
+    "max": 10.14
+   },
+   "hard": {
+    "min": 10.14,
+    "max": 57.28
+   }
+  }
+ },
+ "notes": [
+  "Buckets are UNREVIEWED heuristics: difficulty was ranked by modal/conditional marker count, rules-text length, ability-line count and keyword count, then cut into terciles. See sample.py's docstring.",
+  "The hard-bucket gap between tiers is the number this benchmark exists to produce, so treat it as provisional until `reviewed` is true.",
+  "Anchor rungs are excluded: all 255 appear verbatim in every system prompt."
+ ],
+ "cards": [
+  {
+   "oracle_id": "b47fd32d-1a56-414f-9d91-ddd46d4b5ac7",
+   "name": "Centaur's Herald",
+   "bucket": "easy",
+   "signals": {
+    "text_chars": 75,
+    "modal_markers": 0,
+    "ability_lines": 1,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Creature",
+    "color_bucket": "G",
+    "mana_value_band": "0-1",
+    "difficulty_score": 3.0
+   }
+  },
+  {
+   "oracle_id": "aa17782b-d8e7-423b-9f03-01ccb600f69a",
+   "name": "Windreaper Falcon",
+   "bucket": "easy",
+   "signals": {
+    "text_chars": 28,
+    "modal_markers": 0,
+    "ability_lines": 1,
+    "keywords": 2,
+    "is_vanilla": false,
+    "base_type": "Creature",
+    "color_bucket": "M2",
+    "mana_value_band": "2-3",
+    "difficulty_score": 3.06
+   }
+  },
+  {
+   "oracle_id": "c4893a24-3cbc-4011-bef4-50e0c4dce16e",
+   "name": "Darkwater Egg",
+   "bucket": "easy",
+   "signals": {
+    "text_chars": 59,
+    "modal_markers": 0,
+    "ability_lines": 1,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Artifact",
+    "color_bucket": "M2",
+    "mana_value_band": "0-1",
+    "difficulty_score": 2.68
+   }
+  },
+  {
+   "oracle_id": "30e99293-3212-4e3f-b543-b1c7c416575d",
+   "name": "Living Plane",
+   "bucket": "easy",
+   "signals": {
+    "text_chars": 49,
+    "modal_markers": 0,
+    "ability_lines": 1,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Enchantment",
+    "color_bucket": "G",
+    "mana_value_band": "4-5",
+    "difficulty_score": 2.48
+   }
+  },
+  {
+   "oracle_id": "af65bbf9-e328-4b8b-8caa-c6dff743867b",
+   "name": "Too Greedily, Too Deep",
+   "bucket": "easy",
+   "signals": {
+    "text_chars": 152,
+    "modal_markers": 0,
+    "ability_lines": 1,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Sorcery",
+    "color_bucket": "M2",
+    "mana_value_band": "6+",
+    "difficulty_score": 4.54
+   }
+  },
+  {
+   "oracle_id": "0aa556a6-66aa-42f1-ba41-0001e10c20a4",
+   "name": "Steam Augury",
+   "bucket": "easy",
+   "signals": {
+    "text_chars": 179,
+    "modal_markers": 0,
+    "ability_lines": 1,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Instant",
+    "color_bucket": "M2",
+    "mana_value_band": "4-5",
+    "difficulty_score": 5.08
+   }
+  },
+  {
+   "oracle_id": "56719f6a-1a6c-4c0a-8d21-18f7d7350b68",
+   "name": "Swamp",
+   "bucket": "easy",
+   "signals": {
+    "text_chars": 0,
+    "modal_markers": 0,
+    "ability_lines": 1,
+    "keywords": 0,
+    "is_vanilla": true,
+    "base_type": "Land",
+    "color_bucket": "B",
+    "mana_value_band": "0-1",
+    "difficulty_score": 0.0
+   }
+  },
+  {
+   "oracle_id": "53b121df-3040-4ad0-a25d-587a299b4f8b",
+   "name": "Deepchannel Mentor",
+   "bucket": "easy",
+   "signals": {
+    "text_chars": 44,
+    "modal_markers": 0,
+    "ability_lines": 1,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Creature",
+    "color_bucket": "U",
+    "mana_value_band": "6+",
+    "difficulty_score": 2.38
+   }
+  },
+  {
+   "oracle_id": "999a9310-d145-4c1a-8518-9d96602ca672",
+   "name": "Inkling Summoning",
+   "bucket": "easy",
+   "signals": {
+    "text_chars": 64,
+    "modal_markers": 0,
+    "ability_lines": 1,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Sorcery",
+    "color_bucket": "M2",
+    "mana_value_band": "2-3",
+    "difficulty_score": 2.78
+   }
+  },
+  {
+   "oracle_id": "8b4aa971-b919-4750-8388-33d4f42c9280",
+   "name": "Tree of Tales",
+   "bucket": "easy",
+   "signals": {
+    "text_chars": 13,
+    "modal_markers": 0,
+    "ability_lines": 1,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Artifact",
+    "color_bucket": "G",
+    "mana_value_band": "0-1",
+    "difficulty_score": 1.76
+   }
+  },
+  {
+   "oracle_id": "f4bdc551-c2eb-4a34-a3e3-b4a017c925af",
+   "name": "Liquimetal Coating",
+   "bucket": "easy",
+   "signals": {
+    "text_chars": 91,
+    "modal_markers": 0,
+    "ability_lines": 1,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Artifact",
+    "color_bucket": "C",
+    "mana_value_band": "2-3",
+    "difficulty_score": 3.32
+   }
+  },
+  {
+   "oracle_id": "13d8347f-adb9-41b5-a7b0-a6153bcf2d6c",
+   "name": "Galvanic Bombardment",
+   "bucket": "easy",
+   "signals": {
+    "text_chars": 139,
+    "modal_markers": 0,
+    "ability_lines": 1,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Instant",
+    "color_bucket": "R",
+    "mana_value_band": "0-1",
+    "difficulty_score": 4.28
+   }
+  },
+  {
+   "oracle_id": "6f2e4607-bece-42ba-a2a3-5dc50f246793",
+   "name": "Mammoth Bellow",
+   "bucket": "easy",
+   "signals": {
+    "text_chars": 66,
+    "modal_markers": 0,
+    "ability_lines": 2,
+    "keywords": 1,
+    "is_vanilla": false,
+    "base_type": "Sorcery",
+    "color_bucket": "M3",
+    "mana_value_band": "4-5",
+    "difficulty_score": 4.82
+   }
+  },
+  {
+   "oracle_id": "b3a81bb1-cbd5-41a0-8dd4-faea06593f84",
+   "name": "Relic of Sauron",
+   "bucket": "easy",
+   "signals": {
+    "text_chars": 108,
+    "modal_markers": 0,
+    "ability_lines": 2,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Artifact",
+    "color_bucket": "M3",
+    "mana_value_band": "4-5",
+    "difficulty_score": 5.16
+   }
+  },
+  {
+   "oracle_id": "5e4107ce-8450-4501-9cb3-a6344ef320f1",
+   "name": "Might of the Ancestors",
+   "bucket": "easy",
+   "signals": {
+    "text_chars": 118,
+    "modal_markers": 0,
+    "ability_lines": 1,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Enchantment",
+    "color_bucket": "W",
+    "mana_value_band": "2-3",
+    "difficulty_score": 3.86
+   }
+  },
+  {
+   "oracle_id": "2e7a9ea9-f76c-4c12-950f-c613fa16cfa8",
+   "name": "Captain Sisay",
+   "bucket": "easy",
+   "signals": {
+    "text_chars": 101,
+    "modal_markers": 0,
+    "ability_lines": 1,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Creature",
+    "color_bucket": "M2",
+    "mana_value_band": "4-5",
+    "difficulty_score": 3.52
+   }
+  },
+  {
+   "oracle_id": "d4870995-f434-4985-a921-1dc9556cee41",
+   "name": "Moonglove Winnower",
+   "bucket": "easy",
+   "signals": {
+    "text_chars": 10,
+    "modal_markers": 0,
+    "ability_lines": 1,
+    "keywords": 1,
+    "is_vanilla": false,
+    "base_type": "Creature",
+    "color_bucket": "B",
+    "mana_value_band": "4-5",
+    "difficulty_score": 2.2
+   }
+  },
+  {
+   "oracle_id": "450e84c7-afbe-4b30-a3e9-1dff968a5200",
+   "name": "Kor Halberd",
+   "bucket": "easy",
+   "signals": {
+    "text_chars": 57,
+    "modal_markers": 0,
+    "ability_lines": 2,
+    "keywords": 1,
+    "is_vanilla": false,
+    "base_type": "Artifact",
+    "color_bucket": "W",
+    "mana_value_band": "0-1",
+    "difficulty_score": 4.64
+   }
+  },
+  {
+   "oracle_id": "910f4339-9125-45b7-929f-57e1adb6ac3c",
+   "name": "Lay Bare the Heart",
+   "bucket": "easy",
+   "signals": {
+    "text_chars": 116,
+    "modal_markers": 0,
+    "ability_lines": 1,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Sorcery",
+    "color_bucket": "B",
+    "mana_value_band": "2-3",
+    "difficulty_score": 3.82
+   }
+  },
+  {
+   "oracle_id": "1720d38a-c3c1-4294-85c1-a91fc7179d6f",
+   "name": "Boon of the Wish-Giver",
+   "bucket": "easy",
+   "signals": {
+    "text_chars": 28,
+    "modal_markers": 0,
+    "ability_lines": 2,
+    "keywords": 1,
+    "is_vanilla": false,
+    "base_type": "Sorcery",
+    "color_bucket": "U",
+    "mana_value_band": "6+",
+    "difficulty_score": 4.06
+   }
+  },
+  {
+   "oracle_id": "d9f2c571-b357-4d4d-94c5-fd47551bb842",
+   "name": "Bump in the Night",
+   "bucket": "easy",
+   "signals": {
+    "text_chars": 46,
+    "modal_markers": 0,
+    "ability_lines": 2,
+    "keywords": 1,
+    "is_vanilla": false,
+    "base_type": "Sorcery",
+    "color_bucket": "M2",
+    "mana_value_band": "0-1",
+    "difficulty_score": 4.42
+   }
+  },
+  {
+   "oracle_id": "fb34fc00-e60d-41fc-9393-ca4248ec0a1c",
+   "name": "Ur-Golem's Eye",
+   "bucket": "easy",
+   "signals": {
+    "text_chars": 16,
+    "modal_markers": 0,
+    "ability_lines": 1,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Artifact",
+    "color_bucket": "C",
+    "mana_value_band": "4-5",
+    "difficulty_score": 1.82
+   }
+  },
+  {
+   "oracle_id": "6eb7a870-b626-4326-9e4c-45193f8ce138",
+   "name": "Hire a Crew",
+   "bucket": "easy",
+   "signals": {
+    "text_chars": 110,
+    "modal_markers": 0,
+    "ability_lines": 1,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Instant",
+    "color_bucket": "R",
+    "mana_value_band": "2-3",
+    "difficulty_score": 3.7
+   }
+  },
+  {
+   "oracle_id": "6f6601bc-cb12-4054-9027-e4a0ebdae1a3",
+   "name": "Boots of Speed",
+   "bucket": "easy",
+   "signals": {
+    "text_chars": 53,
+    "modal_markers": 0,
+    "ability_lines": 2,
+    "keywords": 1,
+    "is_vanilla": false,
+    "base_type": "Artifact",
+    "color_bucket": "R",
+    "mana_value_band": "0-1",
+    "difficulty_score": 4.56
+   }
+  },
+  {
+   "oracle_id": "b3a84b75-a6a2-4521-a9f1-92596796c703",
+   "name": "Corpulent Corpse",
+   "bucket": "easy",
+   "signals": {
+    "text_chars": 18,
+    "modal_markers": 0,
+    "ability_lines": 2,
+    "keywords": 2,
+    "is_vanilla": false,
+    "base_type": "Creature",
+    "color_bucket": "B",
+    "mana_value_band": "6+",
+    "difficulty_score": 4.36
+   }
+  },
+  {
+   "oracle_id": "6ad18589-ece4-4809-80f6-6764d2822372",
+   "name": "Desert Cerodon",
+   "bucket": "easy",
+   "signals": {
+    "text_chars": 11,
+    "modal_markers": 0,
+    "ability_lines": 1,
+    "keywords": 1,
+    "is_vanilla": false,
+    "base_type": "Creature",
+    "color_bucket": "R",
+    "mana_value_band": "6+",
+    "difficulty_score": 2.22
+   }
+  },
+  {
+   "oracle_id": "bc71ebf6-2056-41f7-be35-b2e5c34afa99",
+   "name": "Plains",
+   "bucket": "easy",
+   "signals": {
+    "text_chars": 0,
+    "modal_markers": 0,
+    "ability_lines": 1,
+    "keywords": 0,
+    "is_vanilla": true,
+    "base_type": "Land",
+    "color_bucket": "W",
+    "mana_value_band": "0-1",
+    "difficulty_score": 0.0
+   }
+  },
+  {
+   "oracle_id": "15093579-8258-41d2-9738-aaa7e3824c40",
+   "name": "Cephalid Snitch",
+   "bucket": "easy",
+   "signals": {
+    "text_chars": 87,
+    "modal_markers": 0,
+    "ability_lines": 1,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Creature",
+    "color_bucket": "U",
+    "mana_value_band": "2-3",
+    "difficulty_score": 3.24
+   }
+  },
+  {
+   "oracle_id": "67b8b67d-fda3-4a62-9bfb-51a171638502",
+   "name": "Fleshformer",
+   "bucket": "easy",
+   "signals": {
+    "text_chars": 153,
+    "modal_markers": 0,
+    "ability_lines": 1,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Creature",
+    "color_bucket": "M5",
+    "mana_value_band": "2-3",
+    "difficulty_score": 4.56
+   }
+  },
+  {
+   "oracle_id": "1275653f-de4e-4fe9-aad8-88555fa11680",
+   "name": "Wirewood Lodge",
+   "bucket": "easy",
+   "signals": {
+    "text_chars": 41,
+    "modal_markers": 0,
+    "ability_lines": 2,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Land",
+    "color_bucket": "G",
+    "mana_value_band": "0-1",
+    "difficulty_score": 3.82
+   }
+  },
+  {
+   "oracle_id": "9ae1fded-2e77-498a-98e7-4a4908447175",
+   "name": "Introduction to Prophecy",
+   "bucket": "easy",
+   "signals": {
+    "text_chars": 25,
+    "modal_markers": 0,
+    "ability_lines": 1,
+    "keywords": 1,
+    "is_vanilla": false,
+    "base_type": "Sorcery",
+    "color_bucket": "C",
+    "mana_value_band": "2-3",
+    "difficulty_score": 2.5
+   }
+  },
+  {
+   "oracle_id": "70f5e932-0dc5-4c34-b7be-16cd80ec10b7",
+   "name": "Nightmarish End",
+   "bucket": "easy",
+   "signals": {
+    "text_chars": 90,
+    "modal_markers": 0,
+    "ability_lines": 1,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Instant",
+    "color_bucket": "B",
+    "mana_value_band": "2-3",
+    "difficulty_score": 3.3
+   }
+  },
+  {
+   "oracle_id": "cb0e1afa-fd9e-4bf9-bcb1-6e8110d6e2ff",
+   "name": "Cloudfin Raptor",
+   "bucket": "easy",
+   "signals": {
+    "text_chars": 13,
+    "modal_markers": 0,
+    "ability_lines": 2,
+    "keywords": 2,
+    "is_vanilla": false,
+    "base_type": "Creature",
+    "color_bucket": "U",
+    "mana_value_band": "0-1",
+    "difficulty_score": 4.26
+   }
+  },
+  {
+   "oracle_id": "40ee79dd-cf53-415c-8e3c-d1a125a735db",
+   "name": "Rallying Roar",
+   "bucket": "easy",
+   "signals": {
+    "text_chars": 62,
+    "modal_markers": 0,
+    "ability_lines": 1,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Instant",
+    "color_bucket": "W",
+    "mana_value_band": "2-3",
+    "difficulty_score": 2.74
+   }
+  },
+  {
+   "oracle_id": "34e325f0-b66f-44b9-a25c-da88357dbac4",
+   "name": "Thunderscape Apprentice",
+   "bucket": "easy",
+   "signals": {
+    "text_chars": 93,
+    "modal_markers": 0,
+    "ability_lines": 2,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Creature",
+    "color_bucket": "M3",
+    "mana_value_band": "0-1",
+    "difficulty_score": 4.86
+   }
+  },
+  {
+   "oracle_id": "09386931-59bd-481f-bccc-32e8a8abc0f9",
+   "name": "Elephant Ambush",
+   "bucket": "easy",
+   "signals": {
+    "text_chars": 63,
+    "modal_markers": 0,
+    "ability_lines": 2,
+    "keywords": 1,
+    "is_vanilla": false,
+    "base_type": "Instant",
+    "color_bucket": "G",
+    "mana_value_band": "4-5",
+    "difficulty_score": 4.76
+   }
+  },
+  {
+   "oracle_id": "73d71731-f694-471c-b2ad-a36854bb06a1",
+   "name": "Lose Calm",
+   "bucket": "easy",
+   "signals": {
+    "text_chars": 116,
+    "modal_markers": 0,
+    "ability_lines": 1,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Sorcery",
+    "color_bucket": "R",
+    "mana_value_band": "4-5",
+    "difficulty_score": 3.82
+   }
+  },
+  {
+   "oracle_id": "a768ba13-4d1c-4dce-a4a6-86a39c069c3f",
+   "name": "Foot Soldiers",
+   "bucket": "easy",
+   "signals": {
+    "text_chars": 0,
+    "modal_markers": 0,
+    "ability_lines": 0,
+    "keywords": 0,
+    "is_vanilla": true,
+    "base_type": "Creature",
+    "color_bucket": "W",
+    "mana_value_band": "4-5",
+    "difficulty_score": 0.0
+   }
+  },
+  {
+   "oracle_id": "5b2460a5-6ae5-4cad-ba94-1a9e98e6e4c0",
+   "name": "Snow-Covered Island",
+   "bucket": "easy",
+   "signals": {
+    "text_chars": 0,
+    "modal_markers": 0,
+    "ability_lines": 1,
+    "keywords": 0,
+    "is_vanilla": true,
+    "base_type": "Land",
+    "color_bucket": "U",
+    "mana_value_band": "0-1",
+    "difficulty_score": 0.0
+   }
+  },
+  {
+   "oracle_id": "de44e7c8-01f9-44f9-9716-9e8a5b82b1ff",
+   "name": "Gwendlyn Di Corci",
+   "bucket": "easy",
+   "signals": {
+    "text_chars": 77,
+    "modal_markers": 0,
+    "ability_lines": 1,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Creature",
+    "color_bucket": "M3",
+    "mana_value_band": "4-5",
+    "difficulty_score": 3.04
+   }
+  },
+  {
+   "oracle_id": "3ee5d7b6-0263-4239-a5fb-de1e1a220c55",
+   "name": "Ketria Crystal",
+   "bucket": "easy",
+   "signals": {
+    "text_chars": 38,
+    "modal_markers": 0,
+    "ability_lines": 2,
+    "keywords": 1,
+    "is_vanilla": false,
+    "base_type": "Artifact",
+    "color_bucket": "M3",
+    "mana_value_band": "2-3",
+    "difficulty_score": 4.26
+   }
+  },
+  {
+   "oracle_id": "67631753-f37a-4f41-a6e6-1edead385acc",
+   "name": "Bloodsoaked Altar",
+   "bucket": "easy",
+   "signals": {
+    "text_chars": 135,
+    "modal_markers": 0,
+    "ability_lines": 1,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Artifact",
+    "color_bucket": "B",
+    "mana_value_band": "6+",
+    "difficulty_score": 4.2
+   }
+  },
+  {
+   "oracle_id": "15d63e5d-dc4d-4e5f-8043-78039a49732b",
+   "name": "Prodigious Growth",
+   "bucket": "easy",
+   "signals": {
+    "text_chars": 63,
+    "modal_markers": 0,
+    "ability_lines": 2,
+    "keywords": 1,
+    "is_vanilla": false,
+    "base_type": "Enchantment",
+    "color_bucket": "G",
+    "mana_value_band": "6+",
+    "difficulty_score": 4.76
+   }
+  },
+  {
+   "oracle_id": "fa0ef984-b4e0-4c48-978c-0648e49d53f5",
+   "name": "Dampen Thought",
+   "bucket": "easy",
+   "signals": {
+    "text_chars": 57,
+    "modal_markers": 0,
+    "ability_lines": 2,
+    "keywords": 2,
+    "is_vanilla": false,
+    "base_type": "Instant",
+    "color_bucket": "U",
+    "mana_value_band": "2-3",
+    "difficulty_score": 5.14
+   }
+  },
+  {
+   "oracle_id": "8894ab96-17e1-41d8-a4fb-28b510807394",
+   "name": "Need for Speed",
+   "bucket": "easy",
+   "signals": {
+    "text_chars": 64,
+    "modal_markers": 0,
+    "ability_lines": 1,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Enchantment",
+    "color_bucket": "R",
+    "mana_value_band": "0-1",
+    "difficulty_score": 2.78
+   }
+  },
+  {
+   "oracle_id": "663d9559-6619-46fe-8ff4-655f1d5e0e4c",
+   "name": "Valgavoth's Onslaught",
+   "bucket": "easy",
+   "signals": {
+    "text_chars": 77,
+    "modal_markers": 0,
+    "ability_lines": 1,
+    "keywords": 2,
+    "is_vanilla": false,
+    "base_type": "Sorcery",
+    "color_bucket": "G",
+    "mana_value_band": "0-1",
+    "difficulty_score": 4.04
+   }
+  },
+  {
+   "oracle_id": "651c967c-8f71-4eb5-b22f-545e55ea050e",
+   "name": "Carnelian Orb of Dragonkind",
+   "bucket": "easy",
+   "signals": {
+    "text_chars": 97,
+    "modal_markers": 0,
+    "ability_lines": 1,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Artifact",
+    "color_bucket": "R",
+    "mana_value_band": "2-3",
+    "difficulty_score": 3.44
+   }
+  },
+  {
+   "oracle_id": "d0c05cad-6e14-4726-b7fc-8f2fc7df7267",
+   "name": "Wall of Light",
+   "bucket": "easy",
+   "signals": {
+    "text_chars": 30,
+    "modal_markers": 0,
+    "ability_lines": 2,
+    "keywords": 2,
+    "is_vanilla": false,
+    "base_type": "Creature",
+    "color_bucket": "W",
+    "mana_value_band": "2-3",
+    "difficulty_score": 4.6
+   }
+  },
+  {
+   "oracle_id": "ca68648f-fe3a-4770-9842-a3dc2310f099",
+   "name": "Crystal Quarry",
+   "bucket": "easy",
+   "signals": {
+    "text_chars": 44,
+    "modal_markers": 0,
+    "ability_lines": 2,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Land",
+    "color_bucket": "M5",
+    "mana_value_band": "0-1",
+    "difficulty_score": 3.88
+   }
+  },
+  {
+   "oracle_id": "d63185ac-c7cd-4501-9248-54d6caf7d091",
+   "name": "Well of Discovery",
+   "bucket": "easy",
+   "signals": {
+    "text_chars": 81,
+    "modal_markers": 0,
+    "ability_lines": 1,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Artifact",
+    "color_bucket": "C",
+    "mana_value_band": "6+",
+    "difficulty_score": 3.12
+   }
+  },
+  {
+   "oracle_id": "cb50ec2e-cb27-4ee5-a7de-64ab93619cea",
+   "name": "Awe for the Guilds",
+   "bucket": "easy",
+   "signals": {
+    "text_chars": 44,
+    "modal_markers": 0,
+    "ability_lines": 1,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Sorcery",
+    "color_bucket": "R",
+    "mana_value_band": "2-3",
+    "difficulty_score": 2.38
+   }
+  },
+  {
+   "oracle_id": "1093fdb6-bd4f-46a8-92e3-5aa46b52bb4f",
+   "name": "Weathered Wayfarer",
+   "bucket": "easy",
+   "signals": {
+    "text_chars": 153,
+    "modal_markers": 0,
+    "ability_lines": 1,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Creature",
+    "color_bucket": "W",
+    "mana_value_band": "0-1",
+    "difficulty_score": 4.56
+   }
+  },
+  {
+   "oracle_id": "d64d69bd-1815-4647-90bc-767fad5c7da7",
+   "name": "Haystack",
+   "bucket": "easy",
+   "signals": {
+    "text_chars": 49,
+    "modal_markers": 0,
+    "ability_lines": 1,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Artifact",
+    "color_bucket": "W",
+    "mana_value_band": "2-3",
+    "difficulty_score": 2.48
+   }
+  },
+  {
+   "oracle_id": "784970de-ef8c-4672-b5d0-24a4b0a978a3",
+   "name": "Composite Golem",
+   "bucket": "easy",
+   "signals": {
+    "text_chars": 45,
+    "modal_markers": 0,
+    "ability_lines": 1,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Creature",
+    "color_bucket": "M5",
+    "mana_value_band": "6+",
+    "difficulty_score": 2.4
+   }
+  },
+  {
+   "oracle_id": "925b3d1b-98cd-44f5-8aa0-e2b17df2808a",
+   "name": "Take Inventory",
+   "bucket": "easy",
+   "signals": {
+    "text_chars": 97,
+    "modal_markers": 0,
+    "ability_lines": 1,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Sorcery",
+    "color_bucket": "U",
+    "mana_value_band": "2-3",
+    "difficulty_score": 3.44
+   }
+  },
+  {
+   "oracle_id": "06ef46c6-00ba-40e6-b866-d0095ab83749",
+   "name": "Wave Goodbye",
+   "bucket": "easy",
+   "signals": {
+    "text_chars": 71,
+    "modal_markers": 0,
+    "ability_lines": 1,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Sorcery",
+    "color_bucket": "U",
+    "mana_value_band": "4-5",
+    "difficulty_score": 2.92
+   }
+  },
+  {
+   "oracle_id": "0c572396-4e53-4c86-9b04-f41341dcea05",
+   "name": "Crucible of Fire",
+   "bucket": "easy",
+   "signals": {
+    "text_chars": 39,
+    "modal_markers": 0,
+    "ability_lines": 1,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Enchantment",
+    "color_bucket": "R",
+    "mana_value_band": "4-5",
+    "difficulty_score": 2.28
+   }
+  },
+  {
+   "oracle_id": "49491601-e272-4603-9348-185a2953bd4b",
+   "name": "Browse",
+   "bucket": "easy",
+   "signals": {
+    "text_chars": 106,
+    "modal_markers": 0,
+    "ability_lines": 1,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Enchantment",
+    "color_bucket": "U",
+    "mana_value_band": "4-5",
+    "difficulty_score": 3.62
+   }
+  },
+  {
+   "oracle_id": "cda93cf5-da51-4117-b461-f4448aa2d16c",
+   "name": "Teyo, the Shieldmage",
+   "bucket": "easy",
+   "signals": {
+    "text_chars": 76,
+    "modal_markers": 0,
+    "ability_lines": 2,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Planeswalker",
+    "color_bucket": "W",
+    "mana_value_band": "2-3",
+    "difficulty_score": 4.52
+   }
+  },
+  {
+   "oracle_id": "e4ab986d-662c-4879-b6f1-6887a2ec4d7c",
+   "name": "Disentomb",
+   "bucket": "easy",
+   "signals": {
+    "text_chars": 61,
+    "modal_markers": 0,
+    "ability_lines": 1,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Sorcery",
+    "color_bucket": "B",
+    "mana_value_band": "0-1",
+    "difficulty_score": 2.72
+   }
+  },
+  {
+   "oracle_id": "ddd45d52-20c3-4731-8860-142af1ccaaa0",
+   "name": "Riding Red Hare",
+   "bucket": "easy",
+   "signals": {
+    "text_chars": 68,
+    "modal_markers": 0,
+    "ability_lines": 1,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Sorcery",
+    "color_bucket": "W",
+    "mana_value_band": "2-3",
+    "difficulty_score": 2.86
+   }
+  },
+  {
+   "oracle_id": "de08f5d4-8868-4d0f-8c0e-d0d3a2105581",
+   "name": "Angrath, Captain of Chaos",
+   "bucket": "easy",
+   "signals": {
+    "text_chars": 55,
+    "modal_markers": 0,
+    "ability_lines": 2,
+    "keywords": 1,
+    "is_vanilla": false,
+    "base_type": "Planeswalker",
+    "color_bucket": "M2",
+    "mana_value_band": "4-5",
+    "difficulty_score": 4.6
+   }
+  },
+  {
+   "oracle_id": "2b5f70ec-33da-4dff-9cff-fe05eb906685",
+   "name": "Caustic Tar",
+   "bucket": "easy",
+   "signals": {
+    "text_chars": 66,
+    "modal_markers": 0,
+    "ability_lines": 2,
+    "keywords": 1,
+    "is_vanilla": false,
+    "base_type": "Enchantment",
+    "color_bucket": "B",
+    "mana_value_band": "6+",
+    "difficulty_score": 4.82
+   }
+  },
+  {
+   "oracle_id": "5794b58e-f3b6-4637-b288-283b3a72a718",
+   "name": "Mindlock Orb",
+   "bucket": "easy",
+   "signals": {
+    "text_chars": 31,
+    "modal_markers": 0,
+    "ability_lines": 1,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Artifact",
+    "color_bucket": "U",
+    "mana_value_band": "4-5",
+    "difficulty_score": 2.12
+   }
+  },
+  {
+   "oracle_id": "50aa7aff-1f01-4224-9a83-01f74d703ec2",
+   "name": "Earthcraft",
+   "bucket": "easy",
+   "signals": {
+    "text_chars": 62,
+    "modal_markers": 0,
+    "ability_lines": 1,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Enchantment",
+    "color_bucket": "G",
+    "mana_value_band": "2-3",
+    "difficulty_score": 2.74
+   }
+  },
+  {
+   "oracle_id": "00571e7f-4e40-4a07-a529-34580e942338",
+   "name": "Food Fight",
+   "bucket": "easy",
+   "signals": {
+    "text_chars": 159,
+    "modal_markers": 0,
+    "ability_lines": 1,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Enchantment",
+    "color_bucket": "R",
+    "mana_value_band": "2-3",
+    "difficulty_score": 4.68
+   }
+  },
+  {
+   "oracle_id": "36e1485d-3b8c-4c23-9d12-6937fd216b25",
+   "name": "Ghoulcaller's Bell",
+   "bucket": "easy",
+   "signals": {
+    "text_chars": 30,
+    "modal_markers": 0,
+    "ability_lines": 1,
+    "keywords": 1,
+    "is_vanilla": false,
+    "base_type": "Artifact",
+    "color_bucket": "C",
+    "mana_value_band": "0-1",
+    "difficulty_score": 2.6
+   }
+  },
+  {
+   "oracle_id": "6b2ffdb8-3681-4d64-ac03-8c860082e60e",
+   "name": "Ripclaw Wrangler",
+   "bucket": "easy",
+   "signals": {
+    "text_chars": 63,
+    "modal_markers": 0,
+    "ability_lines": 2,
+    "keywords": 1,
+    "is_vanilla": false,
+    "base_type": "Artifact",
+    "color_bucket": "B",
+    "mana_value_band": "4-5",
+    "difficulty_score": 4.76
+   }
+  },
+  {
+   "oracle_id": "e89a3ce0-6b38-4326-a7af-8575af371baa",
+   "name": "Leap",
+   "bucket": "easy",
+   "signals": {
+    "text_chars": 60,
+    "modal_markers": 0,
+    "ability_lines": 2,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Instant",
+    "color_bucket": "U",
+    "mana_value_band": "0-1",
+    "difficulty_score": 4.2
+   }
+  },
+  {
+   "oracle_id": "9fb80575-9c8e-4745-9a8f-d48cdcbbb868",
+   "name": "Guttural Response",
+   "bucket": "easy",
+   "signals": {
+    "text_chars": 34,
+    "modal_markers": 0,
+    "ability_lines": 1,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Instant",
+    "color_bucket": "M2",
+    "mana_value_band": "0-1",
+    "difficulty_score": 2.18
+   }
+  },
+  {
+   "oracle_id": "0e9d8e12-b9da-4452-a758-5caffd8a752e",
+   "name": "Magitek Armor",
+   "bucket": "easy",
+   "signals": {
+    "text_chars": 76,
+    "modal_markers": 0,
+    "ability_lines": 2,
+    "keywords": 1,
+    "is_vanilla": false,
+    "base_type": "Artifact",
+    "color_bucket": "W",
+    "mana_value_band": "4-5",
+    "difficulty_score": 5.02
+   }
+  },
+  {
+   "oracle_id": "a152674f-be29-40ab-8dd9-376fd4eb3bb8",
+   "name": "Fusion Elemental",
+   "bucket": "easy",
+   "signals": {
+    "text_chars": 0,
+    "modal_markers": 0,
+    "ability_lines": 0,
+    "keywords": 0,
+    "is_vanilla": true,
+    "base_type": "Creature",
+    "color_bucket": "M5",
+    "mana_value_band": "4-5",
+    "difficulty_score": 0.0
+   }
+  },
+  {
+   "oracle_id": "d3d67bf0-2e9e-463f-8df8-990ab906fdec",
+   "name": "Leaf Arrow",
+   "bucket": "easy",
+   "signals": {
+    "text_chars": 57,
+    "modal_markers": 0,
+    "ability_lines": 1,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Instant",
+    "color_bucket": "G",
+    "mana_value_band": "0-1",
+    "difficulty_score": 2.64
+   }
+  },
+  {
+   "oracle_id": "60e36f86-e284-468e-8073-07f19a3ed65e",
+   "name": "Introduction to Annihilation",
+   "bucket": "easy",
+   "signals": {
+    "text_chars": 60,
+    "modal_markers": 0,
+    "ability_lines": 1,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Sorcery",
+    "color_bucket": "C",
+    "mana_value_band": "4-5",
+    "difficulty_score": 2.7
+   }
+  },
+  {
+   "oracle_id": "c4c1e49d-5f14-486c-acf2-1952512b12b2",
+   "name": "Energybending",
+   "bucket": "easy",
+   "signals": {
+    "text_chars": 75,
+    "modal_markers": 0,
+    "ability_lines": 2,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Instant",
+    "color_bucket": "C",
+    "mana_value_band": "2-3",
+    "difficulty_score": 4.5
+   }
+  },
+  {
+   "oracle_id": "e1894a57-0faa-4e0d-8ab9-e4785f0457a4",
+   "name": "Hellion Eruption",
+   "bucket": "easy",
+   "signals": {
+    "text_chars": 91,
+    "modal_markers": 0,
+    "ability_lines": 1,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Sorcery",
+    "color_bucket": "R",
+    "mana_value_band": "6+",
+    "difficulty_score": 3.32
+   }
+  },
+  {
+   "oracle_id": "ddf8d3d2-b0f9-43bc-9c9e-cb08fdedcc72",
+   "name": "Thoughtweft Gambit",
+   "bucket": "easy",
+   "signals": {
+    "text_chars": 77,
+    "modal_markers": 0,
+    "ability_lines": 1,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Instant",
+    "color_bucket": "M2",
+    "mana_value_band": "6+",
+    "difficulty_score": 3.04
+   }
+  },
+  {
+   "oracle_id": "f637d525-2f29-488a-9269-8e5aa377fbb7",
+   "name": "Bee Sting",
+   "bucket": "easy",
+   "signals": {
+    "text_chars": 39,
+    "modal_markers": 0,
+    "ability_lines": 1,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Sorcery",
+    "color_bucket": "G",
+    "mana_value_band": "4-5",
+    "difficulty_score": 2.28
+   }
+  },
+  {
+   "oracle_id": "02520741-d7f0-46e6-acbe-010b65fc24c0",
+   "name": "Angel of Despair",
+   "bucket": "easy",
+   "signals": {
+    "text_chars": 59,
+    "modal_markers": 0,
+    "ability_lines": 2,
+    "keywords": 1,
+    "is_vanilla": false,
+    "base_type": "Creature",
+    "color_bucket": "M2",
+    "mana_value_band": "6+",
+    "difficulty_score": 4.68
+   }
+  },
+  {
+   "oracle_id": "01ab7724-1967-4da6-aebd-3729983d6a0e",
+   "name": "Bloodthorn Flail",
+   "bucket": "easy",
+   "signals": {
+    "text_chars": 62,
+    "modal_markers": 0,
+    "ability_lines": 2,
+    "keywords": 1,
+    "is_vanilla": false,
+    "base_type": "Artifact",
+    "color_bucket": "B",
+    "mana_value_band": "0-1",
+    "difficulty_score": 4.74
+   }
+  },
+  {
+   "oracle_id": "7f7049e8-49ed-46da-89f7-1e40aefb3b0c",
+   "name": "Collective Blessing",
+   "bucket": "easy",
+   "signals": {
+    "text_chars": 32,
+    "modal_markers": 0,
+    "ability_lines": 1,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Enchantment",
+    "color_bucket": "M2",
+    "mana_value_band": "6+",
+    "difficulty_score": 2.14
+   }
+  },
+  {
+   "oracle_id": "129ec223-e76d-491d-b299-07ac91168d31",
+   "name": "Resupply",
+   "bucket": "easy",
+   "signals": {
+    "text_chars": 29,
+    "modal_markers": 0,
+    "ability_lines": 2,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Instant",
+    "color_bucket": "W",
+    "mana_value_band": "6+",
+    "difficulty_score": 3.58
+   }
+  },
+  {
+   "oracle_id": "207c7f93-3abf-44c5-ace6-3f86359c9745",
+   "name": "Hieromancer's Cage",
+   "bucket": "easy",
+   "signals": {
+    "text_chars": 128,
+    "modal_markers": 0,
+    "ability_lines": 1,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Enchantment",
+    "color_bucket": "W",
+    "mana_value_band": "4-5",
+    "difficulty_score": 4.06
+   }
+  },
+  {
+   "oracle_id": "9baff93e-4ef9-404d-884b-f651a11f3742",
+   "name": "Fortune's Favor",
+   "bucket": "easy",
+   "signals": {
+    "text_chars": 183,
+    "modal_markers": 0,
+    "ability_lines": 1,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Instant",
+    "color_bucket": "U",
+    "mana_value_band": "4-5",
+    "difficulty_score": 5.16
+   }
+  },
+  {
+   "oracle_id": "a178a789-1f5f-46ca-a90b-574bd236a671",
+   "name": "Winged Boots",
+   "bucket": "easy",
+   "signals": {
+    "text_chars": 52,
+    "modal_markers": 0,
+    "ability_lines": 2,
+    "keywords": 1,
+    "is_vanilla": false,
+    "base_type": "Artifact",
+    "color_bucket": "U",
+    "mana_value_band": "2-3",
+    "difficulty_score": 4.54
+   }
+  },
+  {
+   "oracle_id": "b1c346a4-fc9b-474a-9d51-cac168e363fa",
+   "name": "Maelstrom Nexus",
+   "bucket": "easy",
+   "signals": {
+    "text_chars": 47,
+    "modal_markers": 0,
+    "ability_lines": 1,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Enchantment",
+    "color_bucket": "M5",
+    "mana_value_band": "4-5",
+    "difficulty_score": 2.44
+   }
+  },
+  {
+   "oracle_id": "baadfc17-42fd-4771-aabe-027ef7b3bf69",
+   "name": "Witching Well",
+   "bucket": "easy",
+   "signals": {
+    "text_chars": 83,
+    "modal_markers": 0,
+    "ability_lines": 2,
+    "keywords": 1,
+    "is_vanilla": false,
+    "base_type": "Artifact",
+    "color_bucket": "U",
+    "mana_value_band": "0-1",
+    "difficulty_score": 5.16
+   }
+  },
+  {
+   "oracle_id": "f7b70077-5518-45f9-9833-01a4f8afac71",
+   "name": "Mortal Wound",
+   "bucket": "easy",
+   "signals": {
+    "text_chars": 69,
+    "modal_markers": 0,
+    "ability_lines": 2,
+    "keywords": 1,
+    "is_vanilla": false,
+    "base_type": "Enchantment",
+    "color_bucket": "G",
+    "mana_value_band": "0-1",
+    "difficulty_score": 4.88
+   }
+  },
+  {
+   "oracle_id": "498ec48f-cb28-48d4-96f4-9d60bb4bb45c",
+   "name": "Kaleidostone",
+   "bucket": "easy",
+   "signals": {
+    "text_chars": 95,
+    "modal_markers": 0,
+    "ability_lines": 2,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Artifact",
+    "color_bucket": "M5",
+    "mana_value_band": "2-3",
+    "difficulty_score": 4.9
+   }
+  },
+  {
+   "oracle_id": "7fd06710-0721-4e3e-90ed-d0ccecb1919a",
+   "name": "Sigarda's Summons",
+   "bucket": "easy",
+   "signals": {
+    "text_chars": 146,
+    "modal_markers": 0,
+    "ability_lines": 1,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Enchantment",
+    "color_bucket": "W",
+    "mana_value_band": "6+",
+    "difficulty_score": 4.42
+   }
+  },
+  {
+   "oracle_id": "7663ac7c-1de3-4250-b96a-fae9dbd66a27",
+   "name": "Memnite",
+   "bucket": "easy",
+   "signals": {
+    "text_chars": 0,
+    "modal_markers": 0,
+    "ability_lines": 0,
+    "keywords": 0,
+    "is_vanilla": true,
+    "base_type": "Creature",
+    "color_bucket": "C",
+    "mana_value_band": "0-1",
+    "difficulty_score": 0.0
+   }
+  },
+  {
+   "oracle_id": "f525cf10-e24c-4c46-9a13-6f8579d09d50",
+   "name": "Winds of Change",
+   "bucket": "easy",
+   "signals": {
+    "text_chars": 94,
+    "modal_markers": 0,
+    "ability_lines": 1,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Sorcery",
+    "color_bucket": "R",
+    "mana_value_band": "0-1",
+    "difficulty_score": 3.38
+   }
+  },
+  {
+   "oracle_id": "8a7f446b-557a-41cc-b9ef-369e220a0eeb",
+   "name": "Stensia Innkeeper",
+   "bucket": "easy",
+   "signals": {
+    "text_chars": 129,
+    "modal_markers": 0,
+    "ability_lines": 1,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Creature",
+    "color_bucket": "R",
+    "mana_value_band": "4-5",
+    "difficulty_score": 4.08
+   }
+  },
+  {
+   "oracle_id": "8ce9afd9-0c96-42a2-a534-d92ae04f0151",
+   "name": "Feast on the Fallen",
+   "bucket": "easy",
+   "signals": {
+    "text_chars": 120,
+    "modal_markers": 0,
+    "ability_lines": 1,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Enchantment",
+    "color_bucket": "B",
+    "mana_value_band": "2-3",
+    "difficulty_score": 3.9
+   }
+  },
+  {
+   "oracle_id": "cdc0a1a5-d9e4-4923-b472-2fa78212167f",
+   "name": "Unbender Tine",
+   "bucket": "easy",
+   "signals": {
+    "text_chars": 36,
+    "modal_markers": 0,
+    "ability_lines": 1,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Artifact",
+    "color_bucket": "M2",
+    "mana_value_band": "4-5",
+    "difficulty_score": 2.22
+   }
+  },
+  {
+   "oracle_id": "5cf18398-9552-415e-a61f-2c149e35ec3d",
+   "name": "Zuko's Exile",
+   "bucket": "easy",
+   "signals": {
+    "text_chars": 85,
+    "modal_markers": 0,
+    "ability_lines": 1,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Instant",
+    "color_bucket": "C",
+    "mana_value_band": "4-5",
+    "difficulty_score": 3.2
+   }
+  },
+  {
+   "oracle_id": "f9e31993-bfe1-46fb-8a32-418e97f9cfe1",
+   "name": "Deny Reality",
+   "bucket": "easy",
+   "signals": {
+    "text_chars": 52,
+    "modal_markers": 0,
+    "ability_lines": 2,
+    "keywords": 1,
+    "is_vanilla": false,
+    "base_type": "Sorcery",
+    "color_bucket": "M2",
+    "mana_value_band": "4-5",
+    "difficulty_score": 4.54
+   }
+  },
+  {
+   "oracle_id": "29b3cb3e-aeb1-43eb-8095-9f7881aa34bd",
+   "name": "Prodigal Pyromancer",
+   "bucket": "easy",
+   "signals": {
+    "text_chars": 48,
+    "modal_markers": 0,
+    "ability_lines": 1,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Creature",
+    "color_bucket": "R",
+    "mana_value_band": "2-3",
+    "difficulty_score": 2.46
+   }
+  },
+  {
+   "oracle_id": "1f300320-ad98-4812-b34b-54885a86aee9",
+   "name": "Ember Shot",
+   "bucket": "easy",
+   "signals": {
+    "text_chars": 53,
+    "modal_markers": 0,
+    "ability_lines": 2,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Instant",
+    "color_bucket": "R",
+    "mana_value_band": "6+",
+    "difficulty_score": 4.06
+   }
+  },
+  {
+   "oracle_id": "1ce7f356-1f9b-44dc-9b05-f7b1ecc5d755",
+   "name": "Giant Slug",
+   "bucket": "easy",
+   "signals": {
+    "text_chars": 144,
+    "modal_markers": 0,
+    "ability_lines": 1,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Creature",
+    "color_bucket": "B",
+    "mana_value_band": "2-3",
+    "difficulty_score": 4.38
+   }
+  },
+  {
+   "oracle_id": "ad5ff61f-79d6-4dd9-b4fe-17f7a0055c44",
+   "name": "Reunion of the House",
+   "bucket": "medium",
+   "signals": {
+    "text_chars": 138,
+    "modal_markers": 1,
+    "ability_lines": 1,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Sorcery",
+    "color_bucket": "W",
+    "mana_value_band": "6+",
+    "difficulty_score": 8.26
+   }
+  },
+  {
+   "oracle_id": "535fd365-19f4-4861-8f86-d814650355e9",
+   "name": "Cursed Firebreathing Yogurt",
+   "bucket": "medium",
+   "signals": {
+    "text_chars": 143,
+    "modal_markers": 0,
+    "ability_lines": 4,
+    "keywords": 1,
+    "is_vanilla": false,
+    "base_type": "Other",
+    "color_bucket": "C",
+    "mana_value_band": "0-1",
+    "difficulty_score": 9.36
+   }
+  },
+  {
+   "oracle_id": "bb0d89e7-4ae6-4ac2-a0e6-51ab08226069",
+   "name": "Moratorium Stone",
+   "bucket": "medium",
+   "signals": {
+    "text_chars": 230,
+    "modal_markers": 0,
+    "ability_lines": 2,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Artifact",
+    "color_bucket": "M2",
+    "mana_value_band": "0-1",
+    "difficulty_score": 7.6
+   }
+  },
+  {
+   "oracle_id": "a6898364-c29e-4b97-a500-344efa3ec24a",
+   "name": "Banishing Stroke",
+   "bucket": "medium",
+   "signals": {
+    "text_chars": 95,
+    "modal_markers": 0,
+    "ability_lines": 2,
+    "keywords": 1,
+    "is_vanilla": false,
+    "base_type": "Instant",
+    "color_bucket": "W",
+    "mana_value_band": "6+",
+    "difficulty_score": 5.4
+   }
+  },
+  {
+   "oracle_id": "ee9c57c6-41ef-4328-8417-e5a433eadf17",
+   "name": "Tibalt, the Fiend-Blooded",
+   "bucket": "medium",
+   "signals": {
+    "text_chars": 240,
+    "modal_markers": 0,
+    "ability_lines": 3,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Planeswalker",
+    "color_bucket": "R",
+    "mana_value_band": "2-3",
+    "difficulty_score": 9.3
+   }
+  },
+  {
+   "oracle_id": "daf22b20-3d87-429c-99fe-2f3d4c6fee24",
+   "name": "Chemister's Trick",
+   "bucket": "medium",
+   "signals": {
+    "text_chars": 112,
+    "modal_markers": 0,
+    "ability_lines": 2,
+    "keywords": 1,
+    "is_vanilla": false,
+    "base_type": "Instant",
+    "color_bucket": "M2",
+    "mana_value_band": "2-3",
+    "difficulty_score": 5.74
+   }
+  },
+  {
+   "oracle_id": "6ac8ac31-02ce-48e0-98b9-1c5858e1f593",
+   "name": "Chameleon Blur",
+   "bucket": "medium",
+   "signals": {
+    "text_chars": 66,
+    "modal_markers": 1,
+    "ability_lines": 1,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Instant",
+    "color_bucket": "G",
+    "mana_value_band": "4-5",
+    "difficulty_score": 6.82
+   }
+  },
+  {
+   "oracle_id": "f0b24d59-b3f4-47e6-befd-40a25ad976e2",
+   "name": "Strength of the Coalition",
+   "bucket": "medium",
+   "signals": {
+    "text_chars": 147,
+    "modal_markers": 0,
+    "ability_lines": 2,
+    "keywords": 1,
+    "is_vanilla": false,
+    "base_type": "Instant",
+    "color_bucket": "M2",
+    "mana_value_band": "0-1",
+    "difficulty_score": 6.44
+   }
+  },
+  {
+   "oracle_id": "3d39db09-67b7-4a4e-9667-4e1b806f51a5",
+   "name": "Moment of Glory",
+   "bucket": "medium",
+   "signals": {
+    "text_chars": 170,
+    "modal_markers": 0,
+    "ability_lines": 2,
+    "keywords": 1,
+    "is_vanilla": false,
+    "base_type": "Sorcery",
+    "color_bucket": "W",
+    "mana_value_band": "0-1",
+    "difficulty_score": 6.9
+   }
+  },
+  {
+   "oracle_id": "1787ac2f-762d-4f3a-b7e5-12db6d3d470d",
+   "name": "Repurposing Bay",
+   "bucket": "medium",
+   "signals": {
+    "text_chars": 226,
+    "modal_markers": 0,
+    "ability_lines": 1,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Artifact",
+    "color_bucket": "U",
+    "mana_value_band": "2-3",
+    "difficulty_score": 6.02
+   }
+  },
+  {
+   "oracle_id": "f414f997-06f3-4741-a9a5-9753c182e862",
+   "name": "Kraul Foragers",
+   "bucket": "medium",
+   "signals": {
+    "text_chars": 98,
+    "modal_markers": 1,
+    "ability_lines": 1,
+    "keywords": 1,
+    "is_vanilla": false,
+    "base_type": "Creature",
+    "color_bucket": "G",
+    "mana_value_band": "4-5",
+    "difficulty_score": 7.96
+   }
+  },
+  {
+   "oracle_id": "917652c7-ac12-4cd7-ab2d-f2260a620d02",
+   "name": "Utopia Vow",
+   "bucket": "medium",
+   "signals": {
+    "text_chars": 115,
+    "modal_markers": 0,
+    "ability_lines": 3,
+    "keywords": 1,
+    "is_vanilla": false,
+    "base_type": "Enchantment",
+    "color_bucket": "G",
+    "mana_value_band": "2-3",
+    "difficulty_score": 7.3
+   }
+  },
+  {
+   "oracle_id": "dfb5f660-fd8b-4b7b-934c-6a71cd182f15",
+   "name": "Ajani Goldmane",
+   "bucket": "medium",
+   "signals": {
+    "text_chars": 243,
+    "modal_markers": 0,
+    "ability_lines": 3,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Planeswalker",
+    "color_bucket": "W",
+    "mana_value_band": "4-5",
+    "difficulty_score": 9.36
+   }
+  },
+  {
+   "oracle_id": "c6a607f2-4228-4bcc-84ed-37bd362d7542",
+   "name": "Meteoric Mace",
+   "bucket": "medium",
+   "signals": {
+    "text_chars": 63,
+    "modal_markers": 0,
+    "ability_lines": 3,
+    "keywords": 2,
+    "is_vanilla": false,
+    "base_type": "Artifact",
+    "color_bucket": "R",
+    "mana_value_band": "6+",
+    "difficulty_score": 6.76
+   }
+  },
+  {
+   "oracle_id": "877c34ca-6eff-42ce-b4d7-8a2071d0290a",
+   "name": "Blood Oath",
+   "bucket": "medium",
+   "signals": {
+    "text_chars": 148,
+    "modal_markers": 1,
+    "ability_lines": 1,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Instant",
+    "color_bucket": "R",
+    "mana_value_band": "4-5",
+    "difficulty_score": 8.46
+   }
+  },
+  {
+   "oracle_id": "0d3a06d5-5bb9-4733-a55b-9e2c75de6b6e",
+   "name": "Brotherhood Headquarters",
+   "bucket": "medium",
+   "signals": {
+    "text_chars": 174,
+    "modal_markers": 0,
+    "ability_lines": 2,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Land",
+    "color_bucket": "C",
+    "mana_value_band": "0-1",
+    "difficulty_score": 6.48
+   }
+  },
+  {
+   "oracle_id": "3b78b672-7773-44c6-9a21-f89c058966ff",
+   "name": "Stratadon",
+   "bucket": "medium",
+   "signals": {
+    "text_chars": 100,
+    "modal_markers": 1,
+    "ability_lines": 2,
+    "keywords": 2,
+    "is_vanilla": false,
+    "base_type": "Creature",
+    "color_bucket": "C",
+    "mana_value_band": "6+",
+    "difficulty_score": 10.0
+   }
+  },
+  {
+   "oracle_id": "27e9db49-7af7-4bef-ad4c-bf5dfb92030d",
+   "name": "Fog",
+   "bucket": "medium",
+   "signals": {
+    "text_chars": 56,
+    "modal_markers": 1,
+    "ability_lines": 1,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Instant",
+    "color_bucket": "G",
+    "mana_value_band": "0-1",
+    "difficulty_score": 6.62
+   }
+  },
+  {
+   "oracle_id": "1efe485e-6874-4f4c-b981-e10f41670865",
+   "name": "Kiora, Behemoth Beckoner",
+   "bucket": "medium",
+   "signals": {
+    "text_chars": 104,
+    "modal_markers": 1,
+    "ability_lines": 2,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Planeswalker",
+    "color_bucket": "M2",
+    "mana_value_band": "2-3",
+    "difficulty_score": 9.08
+   }
+  },
+  {
+   "oracle_id": "03136fe1-17e2-4b1c-860a-dc6373c8fdb5",
+   "name": "Storage Matrix",
+   "bucket": "medium",
+   "signals": {
+    "text_chars": 178,
+    "modal_markers": 1,
+    "ability_lines": 1,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Artifact",
+    "color_bucket": "C",
+    "mana_value_band": "2-3",
+    "difficulty_score": 9.06
+   }
+  },
+  {
+   "oracle_id": "8a179d68-c9e6-4f46-99bf-11b2a2708990",
+   "name": "Trigon of Thought",
+   "bucket": "medium",
+   "signals": {
+    "text_chars": 173,
+    "modal_markers": 0,
+    "ability_lines": 3,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Artifact",
+    "color_bucket": "U",
+    "mana_value_band": "4-5",
+    "difficulty_score": 7.96
+   }
+  },
+  {
+   "oracle_id": "3f351696-1402-4b69-b924-f0ba14320287",
+   "name": "Lifespark Spellbomb",
+   "bucket": "medium",
+   "signals": {
+    "text_chars": 147,
+    "modal_markers": 0,
+    "ability_lines": 2,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Artifact",
+    "color_bucket": "G",
+    "mana_value_band": "0-1",
+    "difficulty_score": 5.94
+   }
+  },
+  {
+   "oracle_id": "7dce1e8c-5cfd-4626-9f23-7bb3f1b10c1e",
+   "name": "Eldritch Immunity",
+   "bucket": "medium",
+   "signals": {
+    "text_chars": 95,
+    "modal_markers": 0,
+    "ability_lines": 2,
+    "keywords": 1,
+    "is_vanilla": false,
+    "base_type": "Instant",
+    "color_bucket": "C",
+    "mana_value_band": "0-1",
+    "difficulty_score": 5.4
+   }
+  },
+  {
+   "oracle_id": "84594f86-724b-4f6b-b374-2265a00db566",
+   "name": "Haunted Plate Mail",
+   "bucket": "medium",
+   "signals": {
+    "text_chars": 191,
+    "modal_markers": 0,
+    "ability_lines": 3,
+    "keywords": 1,
+    "is_vanilla": false,
+    "base_type": "Artifact",
+    "color_bucket": "C",
+    "mana_value_band": "4-5",
+    "difficulty_score": 8.82
+   }
+  },
+  {
+   "oracle_id": "e282eb5b-f9e6-4fb3-9edf-44e23359357d",
+   "name": "Misfortune",
+   "bucket": "medium",
+   "signals": {
+    "text_chars": 207,
+    "modal_markers": 0,
+    "ability_lines": 3,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Sorcery",
+    "color_bucket": "M3",
+    "mana_value_band": "4-5",
+    "difficulty_score": 8.64
+   }
+  },
+  {
+   "oracle_id": "0ba134d8-ee7d-48ec-8dc6-57942b8e9261",
+   "name": "Liliana of the Veil",
+   "bucket": "medium",
+   "signals": {
+    "text_chars": 207,
+    "modal_markers": 0,
+    "ability_lines": 3,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Planeswalker",
+    "color_bucket": "B",
+    "mana_value_band": "2-3",
+    "difficulty_score": 8.64
+   }
+  },
+  {
+   "oracle_id": "a5f537f6-3254-45a3-a4e7-d4d4fd7a972d",
+   "name": "Kor Cartographer",
+   "bucket": "medium",
+   "signals": {
+    "text_chars": 123,
+    "modal_markers": 1,
+    "ability_lines": 1,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Creature",
+    "color_bucket": "W",
+    "mana_value_band": "4-5",
+    "difficulty_score": 7.96
+   }
+  },
+  {
+   "oracle_id": "24ee57b5-a505-4264-97ca-8b8dfb12298e",
+   "name": "Mardu Devotee",
+   "bucket": "medium",
+   "signals": {
+    "text_chars": 91,
+    "modal_markers": 0,
+    "ability_lines": 2,
+    "keywords": 1,
+    "is_vanilla": false,
+    "base_type": "Creature",
+    "color_bucket": "M3",
+    "mana_value_band": "0-1",
+    "difficulty_score": 5.32
+   }
+  },
+  {
+   "oracle_id": "9c9b3bf7-afb7-4e9b-bdbc-e2b4d5ba477f",
+   "name": "Banishment",
+   "bucket": "medium",
+   "signals": {
+    "text_chars": 227,
+    "modal_markers": 0,
+    "ability_lines": 2,
+    "keywords": 1,
+    "is_vanilla": false,
+    "base_type": "Enchantment",
+    "color_bucket": "W",
+    "mana_value_band": "4-5",
+    "difficulty_score": 8.04
+   }
+  },
+  {
+   "oracle_id": "6badc583-fabb-4d63-b70c-e7380acafc23",
+   "name": "Roiling Dragonstorm",
+   "bucket": "medium",
+   "signals": {
+    "text_chars": 145,
+    "modal_markers": 0,
+    "ability_lines": 2,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Enchantment",
+    "color_bucket": "U",
+    "mana_value_band": "2-3",
+    "difficulty_score": 5.9
+   }
+  },
+  {
+   "oracle_id": "913bca28-faf9-42e6-a8c0-469cd9bc0208",
+   "name": "Earthen Ally",
+   "bucket": "medium",
+   "signals": {
+    "text_chars": 98,
+    "modal_markers": 1,
+    "ability_lines": 2,
+    "keywords": 1,
+    "is_vanilla": false,
+    "base_type": "Creature",
+    "color_bucket": "M5",
+    "mana_value_band": "0-1",
+    "difficulty_score": 9.46
+   }
+  },
+  {
+   "oracle_id": "431d6a2b-e22c-4921-a5f1-dd672f764f78",
+   "name": "Grim Bauble",
+   "bucket": "medium",
+   "signals": {
+    "text_chars": 142,
+    "modal_markers": 0,
+    "ability_lines": 2,
+    "keywords": 1,
+    "is_vanilla": false,
+    "base_type": "Artifact",
+    "color_bucket": "B",
+    "mana_value_band": "0-1",
+    "difficulty_score": 6.34
+   }
+  },
+  {
+   "oracle_id": "05e6b243-48a6-4a42-bc5f-413441de9c33",
+   "name": "Elspeth, Sun's Champion",
+   "bucket": "medium",
+   "signals": {
+    "text_chars": 180,
+    "modal_markers": 0,
+    "ability_lines": 3,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Planeswalker",
+    "color_bucket": "W",
+    "mana_value_band": "6+",
+    "difficulty_score": 8.1
+   }
+  },
+  {
+   "oracle_id": "76ae3779-c821-4cd3-8d0f-8c42d1206ce4",
+   "name": "Gutterbones",
+   "bucket": "medium",
+   "signals": {
+    "text_chars": 163,
+    "modal_markers": 0,
+    "ability_lines": 2,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Creature",
+    "color_bucket": "B",
+    "mana_value_band": "0-1",
+    "difficulty_score": 6.26
+   }
+  },
+  {
+   "oracle_id": "a3c672b8-9c7d-47cc-877b-580904c6d72b",
+   "name": "Raksha Golden Cub",
+   "bucket": "medium",
+   "signals": {
+    "text_chars": 111,
+    "modal_markers": 1,
+    "ability_lines": 2,
+    "keywords": 1,
+    "is_vanilla": false,
+    "base_type": "Creature",
+    "color_bucket": "W",
+    "mana_value_band": "6+",
+    "difficulty_score": 9.72
+   }
+  },
+  {
+   "oracle_id": "333809cb-e196-45f2-8a67-31374438e56e",
+   "name": "Fiery Justice",
+   "bucket": "medium",
+   "signals": {
+    "text_chars": 109,
+    "modal_markers": 1,
+    "ability_lines": 1,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Sorcery",
+    "color_bucket": "M3",
+    "mana_value_band": "2-3",
+    "difficulty_score": 7.68
+   }
+  },
+  {
+   "oracle_id": "5da5d8a3-009e-4d8a-977e-6ebc73ba2682",
+   "name": "Not of This World",
+   "bucket": "medium",
+   "signals": {
+    "text_chars": 197,
+    "modal_markers": 0,
+    "ability_lines": 2,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Instant",
+    "color_bucket": "C",
+    "mana_value_band": "6+",
+    "difficulty_score": 6.94
+   }
+  },
+  {
+   "oracle_id": "cff5aca2-72c5-4053-a32c-c0bd3174c52d",
+   "name": "Turtles Forever",
+   "bucket": "medium",
+   "signals": {
+    "text_chars": 249,
+    "modal_markers": 0,
+    "ability_lines": 1,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Instant",
+    "color_bucket": "W",
+    "mana_value_band": "4-5",
+    "difficulty_score": 6.48
+   }
+  },
+  {
+   "oracle_id": "279f3aa5-5807-4797-8cd1-e009984a3691",
+   "name": "Take the Fall",
+   "bucket": "medium",
+   "signals": {
+    "text_chars": 124,
+    "modal_markers": 1,
+    "ability_lines": 2,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Instant",
+    "color_bucket": "U",
+    "mana_value_band": "0-1",
+    "difficulty_score": 9.48
+   }
+  },
+  {
+   "oracle_id": "5b410473-1df9-4d16-9b4d-c3ca8e4635b7",
+   "name": "Sphinx of the Guildpact",
+   "bucket": "medium",
+   "signals": {
+    "text_chars": 71,
+    "modal_markers": 0,
+    "ability_lines": 3,
+    "keywords": 3,
+    "is_vanilla": false,
+    "base_type": "Creature",
+    "color_bucket": "M5",
+    "mana_value_band": "6+",
+    "difficulty_score": 7.42
+   }
+  },
+  {
+   "oracle_id": "f1a2a78c-2794-4bc9-9b06-49306378ef69",
+   "name": "Shadow Lance",
+   "bucket": "medium",
+   "signals": {
+    "text_chars": 110,
+    "modal_markers": 0,
+    "ability_lines": 3,
+    "keywords": 1,
+    "is_vanilla": false,
+    "base_type": "Enchantment",
+    "color_bucket": "M2",
+    "mana_value_band": "0-1",
+    "difficulty_score": 7.2
+   }
+  },
+  {
+   "oracle_id": "b2faa8b6-e433-4171-9774-9170484530c4",
+   "name": "Teferi's Response",
+   "bucket": "medium",
+   "signals": {
+    "text_chars": 173,
+    "modal_markers": 0,
+    "ability_lines": 2,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Instant",
+    "color_bucket": "U",
+    "mana_value_band": "2-3",
+    "difficulty_score": 6.46
+   }
+  },
+  {
+   "oracle_id": "a729a684-9171-4ca9-83ad-1d199afad7bb",
+   "name": "Press into Service",
+   "bucket": "medium",
+   "signals": {
+    "text_chars": 116,
+    "modal_markers": 0,
+    "ability_lines": 2,
+    "keywords": 1,
+    "is_vanilla": false,
+    "base_type": "Sorcery",
+    "color_bucket": "R",
+    "mana_value_band": "4-5",
+    "difficulty_score": 5.82
+   }
+  },
+  {
+   "oracle_id": "47a8f3a8-253b-4df9-9cfc-ff7df65d850c",
+   "name": "Forging the Tyrite Sword",
+   "bucket": "medium",
+   "signals": {
+    "text_chars": 167,
+    "modal_markers": 0,
+    "ability_lines": 3,
+    "keywords": 1,
+    "is_vanilla": false,
+    "base_type": "Enchantment",
+    "color_bucket": "M2",
+    "mana_value_band": "2-3",
+    "difficulty_score": 8.34
+   }
+  },
+  {
+   "oracle_id": "e119ba58-85e4-49ec-a2f8-3d094187c99d",
+   "name": "Pure // Simple",
+   "bucket": "medium",
+   "signals": {
+    "text_chars": 86,
+    "modal_markers": 0,
+    "ability_lines": 5,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Sorcery",
+    "color_bucket": "M3",
+    "mana_value_band": "6+",
+    "difficulty_score": 9.22
+   }
+  },
+  {
+   "oracle_id": "9f95027a-5f04-48b4-99a0-8913be3a520a",
+   "name": "Selective Obliteration",
+   "bucket": "medium",
+   "signals": {
+    "text_chars": 121,
+    "modal_markers": 1,
+    "ability_lines": 1,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Sorcery",
+    "color_bucket": "C",
+    "mana_value_band": "4-5",
+    "difficulty_score": 7.92
+   }
+  },
+  {
+   "oracle_id": "992e6845-1c6c-4b74-839c-317823bde15b",
+   "name": "Critical Hit",
+   "bucket": "medium",
+   "signals": {
+    "text_chars": 133,
+    "modal_markers": 0,
+    "ability_lines": 2,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Instant",
+    "color_bucket": "R",
+    "mana_value_band": "2-3",
+    "difficulty_score": 5.66
+   }
+  },
+  {
+   "oracle_id": "aa597788-4149-48b8-9f43-8c0de063eb68",
+   "name": "Runic Shot",
+   "bucket": "medium",
+   "signals": {
+    "text_chars": 76,
+    "modal_markers": 0,
+    "ability_lines": 2,
+    "keywords": 2,
+    "is_vanilla": false,
+    "base_type": "Sorcery",
+    "color_bucket": "M2",
+    "mana_value_band": "0-1",
+    "difficulty_score": 5.52
+   }
+  },
+  {
+   "oracle_id": "dd86d11f-0bd8-49a9-936d-e407ea2c1818",
+   "name": "Mask of Immolation",
+   "bucket": "medium",
+   "signals": {
+    "text_chars": 196,
+    "modal_markers": 0,
+    "ability_lines": 3,
+    "keywords": 1,
+    "is_vanilla": false,
+    "base_type": "Artifact",
+    "color_bucket": "R",
+    "mana_value_band": "2-3",
+    "difficulty_score": 8.92
+   }
+  },
+  {
+   "oracle_id": "2bade11e-04e0-42a2-8861-9257c99a7c08",
+   "name": "Saruman, the White Hand",
+   "bucket": "medium",
+   "signals": {
+    "text_chars": 132,
+    "modal_markers": 1,
+    "ability_lines": 2,
+    "keywords": 1,
+    "is_vanilla": false,
+    "base_type": "Creature",
+    "color_bucket": "M3",
+    "mana_value_band": "4-5",
+    "difficulty_score": 10.14
+   }
+  },
+  {
+   "oracle_id": "cffb615c-2de0-4c65-9d0b-08a649ba0695",
+   "name": "Sorin, Vengeful Bloodlord",
+   "bucket": "medium",
+   "signals": {
+    "text_chars": 280,
+    "modal_markers": 0,
+    "ability_lines": 3,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Planeswalker",
+    "color_bucket": "M2",
+    "mana_value_band": "4-5",
+    "difficulty_score": 10.1
+   }
+  },
+  {
+   "oracle_id": "65d63518-3261-40b5-87b8-19c152b29ee3",
+   "name": "Roiling Regrowth",
+   "bucket": "medium",
+   "signals": {
+    "text_chars": 121,
+    "modal_markers": 1,
+    "ability_lines": 1,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Instant",
+    "color_bucket": "G",
+    "mana_value_band": "2-3",
+    "difficulty_score": 7.92
+   }
+  },
+  {
+   "oracle_id": "b919cca5-88c0-4104-b54e-49644fbf78a5",
+   "name": "Door to Nothingness",
+   "bucket": "medium",
+   "signals": {
+    "text_chars": 120,
+    "modal_markers": 0,
+    "ability_lines": 2,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Artifact",
+    "color_bucket": "M5",
+    "mana_value_band": "4-5",
+    "difficulty_score": 5.4
+   }
+  },
+  {
+   "oracle_id": "a7fe7621-9bb1-4d0d-8b50-c179c685d79d",
+   "name": "Proctor's Gaze",
+   "bucket": "medium",
+   "signals": {
+    "text_chars": 155,
+    "modal_markers": 1,
+    "ability_lines": 1,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Instant",
+    "color_bucket": "M2",
+    "mana_value_band": "4-5",
+    "difficulty_score": 8.6
+   }
+  },
+  {
+   "oracle_id": "189fc8f4-17ac-4f1d-82c8-8401445bdaf4",
+   "name": "Azorius Chancery",
+   "bucket": "medium",
+   "signals": {
+    "text_chars": 111,
+    "modal_markers": 0,
+    "ability_lines": 3,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Land",
+    "color_bucket": "M2",
+    "mana_value_band": "0-1",
+    "difficulty_score": 6.72
+   }
+  },
+  {
+   "oracle_id": "fdb28fd3-70fb-43c3-b367-9cf0d2c46e06",
+   "name": "Void",
+   "bucket": "medium",
+   "signals": {
+    "text_chars": 196,
+    "modal_markers": 0,
+    "ability_lines": 1,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Sorcery",
+    "color_bucket": "M2",
+    "mana_value_band": "4-5",
+    "difficulty_score": 5.42
+   }
+  },
+  {
+   "oracle_id": "4e0de4d9-7a30-4a2b-94ba-8239baad2a0a",
+   "name": "Tsabo's Decree",
+   "bucket": "medium",
+   "signals": {
+    "text_chars": 191,
+    "modal_markers": 0,
+    "ability_lines": 1,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Instant",
+    "color_bucket": "B",
+    "mana_value_band": "6+",
+    "difficulty_score": 5.32
+   }
+  },
+  {
+   "oracle_id": "9e9a7f0b-ffba-43d6-892a-95fd0b8b39f8",
+   "name": "Torment of Venom",
+   "bucket": "medium",
+   "signals": {
+    "text_chars": 155,
+    "modal_markers": 1,
+    "ability_lines": 1,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Instant",
+    "color_bucket": "B",
+    "mana_value_band": "4-5",
+    "difficulty_score": 8.6
+   }
+  },
+  {
+   "oracle_id": "4cbbdebc-b807-4d7b-92dd-312637d2a5de",
+   "name": "Infirmary Healer // Stream of Life",
+   "bucket": "medium",
+   "signals": {
+    "text_chars": 93,
+    "modal_markers": 0,
+    "ability_lines": 5,
+    "keywords": 1,
+    "is_vanilla": false,
+    "base_type": "Creature",
+    "color_bucket": "G",
+    "mana_value_band": "2-3",
+    "difficulty_score": 9.86
+   }
+  },
+  {
+   "oracle_id": "0ea2c5ad-2982-4041-8c9d-a1d31ced11aa",
+   "name": "Detention Chariot",
+   "bucket": "medium",
+   "signals": {
+    "text_chars": 142,
+    "modal_markers": 0,
+    "ability_lines": 3,
+    "keywords": 2,
+    "is_vanilla": false,
+    "base_type": "Artifact",
+    "color_bucket": "W",
+    "mana_value_band": "6+",
+    "difficulty_score": 8.34
+   }
+  },
+  {
+   "oracle_id": "6f98c1eb-0f52-4d21-a266-e8d52f98c1b3",
+   "name": "Molten Psyche",
+   "bucket": "medium",
+   "signals": {
+    "text_chars": 253,
+    "modal_markers": 0,
+    "ability_lines": 2,
+    "keywords": 1,
+    "is_vanilla": false,
+    "base_type": "Sorcery",
+    "color_bucket": "R",
+    "mana_value_band": "2-3",
+    "difficulty_score": 8.56
+   }
+  },
+  {
+   "oracle_id": "762d864b-69bc-43ac-af2f-e18186010169",
+   "name": "Sliver Overlord",
+   "bucket": "medium",
+   "signals": {
+    "text_chars": 134,
+    "modal_markers": 0,
+    "ability_lines": 2,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Creature",
+    "color_bucket": "M5",
+    "mana_value_band": "4-5",
+    "difficulty_score": 5.68
+   }
+  },
+  {
+   "oracle_id": "fcb03c54-5b9a-428d-bbf6-ef8977770c8d",
+   "name": "Anoint",
+   "bucket": "medium",
+   "signals": {
+    "text_chars": 87,
+    "modal_markers": 1,
+    "ability_lines": 2,
+    "keywords": 1,
+    "is_vanilla": false,
+    "base_type": "Instant",
+    "color_bucket": "W",
+    "mana_value_band": "0-1",
+    "difficulty_score": 9.24
+   }
+  },
+  {
+   "oracle_id": "7e6b9b59-cd68-4e3c-827b-38833c92d6eb",
+   "name": "Atraxa, Praetors' Voice",
+   "bucket": "medium",
+   "signals": {
+    "text_chars": 87,
+    "modal_markers": 0,
+    "ability_lines": 2,
+    "keywords": 5,
+    "is_vanilla": false,
+    "base_type": "Creature",
+    "color_bucket": "M4",
+    "mana_value_band": "4-5",
+    "difficulty_score": 7.24
+   }
+  },
+  {
+   "oracle_id": "45aa8bdb-54da-4069-bd6c-c63396154464",
+   "name": "Overwhelming Denial",
+   "bucket": "medium",
+   "signals": {
+    "text_chars": 65,
+    "modal_markers": 0,
+    "ability_lines": 3,
+    "keywords": 1,
+    "is_vanilla": false,
+    "base_type": "Instant",
+    "color_bucket": "U",
+    "mana_value_band": "4-5",
+    "difficulty_score": 6.3
+   }
+  },
+  {
+   "oracle_id": "8f36e0db-eea7-4c97-98ce-4bc2d8c7f734",
+   "name": "Rumbling Ruin",
+   "bucket": "medium",
+   "signals": {
+    "text_chars": 188,
+    "modal_markers": 0,
+    "ability_lines": 1,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Creature",
+    "color_bucket": "R",
+    "mana_value_band": "6+",
+    "difficulty_score": 5.26
+   }
+  },
+  {
+   "oracle_id": "238b270c-152a-48e5-a955-65f5cb80c174",
+   "name": "Vernal Bloom",
+   "bucket": "medium",
+   "signals": {
+    "text_chars": 76,
+    "modal_markers": 1,
+    "ability_lines": 1,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Enchantment",
+    "color_bucket": "G",
+    "mana_value_band": "4-5",
+    "difficulty_score": 7.02
+   }
+  },
+  {
+   "oracle_id": "6fc26faa-94a8-433f-8863-126c2d2e73b0",
+   "name": "Electrostatic Bolt",
+   "bucket": "medium",
+   "signals": {
+    "text_chars": 132,
+    "modal_markers": 1,
+    "ability_lines": 1,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Instant",
+    "color_bucket": "R",
+    "mana_value_band": "0-1",
+    "difficulty_score": 8.14
+   }
+  },
+  {
+   "oracle_id": "2b15d571-2f90-44f7-9153-20ed51253045",
+   "name": "Debris Beetle",
+   "bucket": "medium",
+   "signals": {
+    "text_chars": 88,
+    "modal_markers": 0,
+    "ability_lines": 3,
+    "keywords": 2,
+    "is_vanilla": false,
+    "base_type": "Artifact",
+    "color_bucket": "M2",
+    "mana_value_band": "4-5",
+    "difficulty_score": 7.26
+   }
+  },
+  {
+   "oracle_id": "1bd5fd97-f898-4e17-9e8f-5fa93b9eef71",
+   "name": "Renewing Touch",
+   "bucket": "medium",
+   "signals": {
+    "text_chars": 82,
+    "modal_markers": 1,
+    "ability_lines": 1,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Sorcery",
+    "color_bucket": "G",
+    "mana_value_band": "0-1",
+    "difficulty_score": 7.14
+   }
+  },
+  {
+   "oracle_id": "0c6f343a-0088-477a-a6b5-256783ad0c27",
+   "name": "Corrupted Roots",
+   "bucket": "medium",
+   "signals": {
+    "text_chars": 93,
+    "modal_markers": 1,
+    "ability_lines": 2,
+    "keywords": 1,
+    "is_vanilla": false,
+    "base_type": "Enchantment",
+    "color_bucket": "B",
+    "mana_value_band": "0-1",
+    "difficulty_score": 9.36
+   }
+  },
+  {
+   "oracle_id": "57276db8-9d8d-4587-ae88-dfdc44343f17",
+   "name": "The Fire Crystal",
+   "bucket": "medium",
+   "signals": {
+    "text_chars": 205,
+    "modal_markers": 0,
+    "ability_lines": 3,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Artifact",
+    "color_bucket": "R",
+    "mana_value_band": "4-5",
+    "difficulty_score": 8.6
+   }
+  },
+  {
+   "oracle_id": "a3386efe-d6c5-4853-a4db-61460da3364a",
+   "name": "Dovin, Architect of Law",
+   "bucket": "medium",
+   "signals": {
+    "text_chars": 209,
+    "modal_markers": 0,
+    "ability_lines": 3,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Planeswalker",
+    "color_bucket": "M2",
+    "mana_value_band": "6+",
+    "difficulty_score": 8.68
+   }
+  },
+  {
+   "oracle_id": "8d0213d7-9e25-49d2-93fa-1d346cb2e869",
+   "name": "Akroan Horse",
+   "bucket": "medium",
+   "signals": {
+    "text_chars": 159,
+    "modal_markers": 0,
+    "ability_lines": 3,
+    "keywords": 1,
+    "is_vanilla": false,
+    "base_type": "Creature",
+    "color_bucket": "C",
+    "mana_value_band": "4-5",
+    "difficulty_score": 8.18
+   }
+  },
+  {
+   "oracle_id": "0b12fee3-1ad1-4dc3-bd19-e9ccce5cb829",
+   "name": "Visions of Dread",
+   "bucket": "medium",
+   "signals": {
+    "text_chars": 280,
+    "modal_markers": 0,
+    "ability_lines": 2,
+    "keywords": 1,
+    "is_vanilla": false,
+    "base_type": "Sorcery",
+    "color_bucket": "B",
+    "mana_value_band": "2-3",
+    "difficulty_score": 9.1
+   }
+  },
+  {
+   "oracle_id": "4bb3edc5-2616-4d0d-b9dc-32ed79f38f67",
+   "name": "Calamity of the Titans",
+   "bucket": "medium",
+   "signals": {
+    "text_chars": 185,
+    "modal_markers": 0,
+    "ability_lines": 2,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Sorcery",
+    "color_bucket": "C",
+    "mana_value_band": "6+",
+    "difficulty_score": 6.7
+   }
+  },
+  {
+   "oracle_id": "ae8003eb-9f19-4f23-be3b-0ac3ddc03a72",
+   "name": "Sinister Monolith",
+   "bucket": "medium",
+   "signals": {
+    "text_chars": 174,
+    "modal_markers": 0,
+    "ability_lines": 2,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Artifact",
+    "color_bucket": "B",
+    "mana_value_band": "4-5",
+    "difficulty_score": 6.48
+   }
+  },
+  {
+   "oracle_id": "bff416bb-d193-4c45-b2c1-7c297dbfad08",
+   "name": "Thriving Moor",
+   "bucket": "medium",
+   "signals": {
+    "text_chars": 117,
+    "modal_markers": 0,
+    "ability_lines": 2,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Land",
+    "color_bucket": "B",
+    "mana_value_band": "0-1",
+    "difficulty_score": 5.34
+   }
+  },
+  {
+   "oracle_id": "0f12aec9-5898-4261-bebd-1b545e0aea68",
+   "name": "Mind Unbound",
+   "bucket": "medium",
+   "signals": {
+    "text_chars": 132,
+    "modal_markers": 1,
+    "ability_lines": 1,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Enchantment",
+    "color_bucket": "U",
+    "mana_value_band": "6+",
+    "difficulty_score": 8.14
+   }
+  },
+  {
+   "oracle_id": "9da7e8b5-887d-4174-b7aa-982fd052fcd1",
+   "name": "Burning Sun Cavalry",
+   "bucket": "medium",
+   "signals": {
+    "text_chars": 114,
+    "modal_markers": 1,
+    "ability_lines": 1,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Creature",
+    "color_bucket": "R",
+    "mana_value_band": "2-3",
+    "difficulty_score": 7.78
+   }
+  },
+  {
+   "oracle_id": "ec0ea7f7-52ce-40d1-b34c-e36dd4b26120",
+   "name": "Keldon Megaliths",
+   "bucket": "medium",
+   "signals": {
+    "text_chars": 146,
+    "modal_markers": 0,
+    "ability_lines": 3,
+    "keywords": 1,
+    "is_vanilla": false,
+    "base_type": "Land",
+    "color_bucket": "R",
+    "mana_value_band": "0-1",
+    "difficulty_score": 7.92
+   }
+  },
+  {
+   "oracle_id": "eab70fff-6a9f-4f9f-89a2-b6910c199e46",
+   "name": "Hashep Oasis",
+   "bucket": "medium",
+   "signals": {
+    "text_chars": 149,
+    "modal_markers": 0,
+    "ability_lines": 3,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Land",
+    "color_bucket": "G",
+    "mana_value_band": "0-1",
+    "difficulty_score": 7.48
+   }
+  },
+  {
+   "oracle_id": "f04a7763-5fba-42e5-a45a-b3dc2daba902",
+   "name": "Earth Rumble",
+   "bucket": "medium",
+   "signals": {
+    "text_chars": 108,
+    "modal_markers": 1,
+    "ability_lines": 1,
+    "keywords": 2,
+    "is_vanilla": false,
+    "base_type": "Sorcery",
+    "color_bucket": "G",
+    "mana_value_band": "4-5",
+    "difficulty_score": 8.66
+   }
+  },
+  {
+   "oracle_id": "eda09ed4-7509-4d1e-b169-2b7c1c87e936",
+   "name": "Dark Knight's Greatsword",
+   "bucket": "medium",
+   "signals": {
+    "text_chars": 150,
+    "modal_markers": 0,
+    "ability_lines": 3,
+    "keywords": 3,
+    "is_vanilla": false,
+    "base_type": "Artifact",
+    "color_bucket": "B",
+    "mana_value_band": "2-3",
+    "difficulty_score": 9.0
+   }
+  },
+  {
+   "oracle_id": "4feca1da-dcc8-440c-8933-bab91782b015",
+   "name": "Begin the Invasion",
+   "bucket": "medium",
+   "signals": {
+    "text_chars": 111,
+    "modal_markers": 1,
+    "ability_lines": 1,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Sorcery",
+    "color_bucket": "M5",
+    "mana_value_band": "4-5",
+    "difficulty_score": 7.72
+   }
+  },
+  {
+   "oracle_id": "660d44a2-391a-416c-b46c-ddcc3739f527",
+   "name": "Valgavoth's Lair",
+   "bucket": "medium",
+   "signals": {
+    "text_chars": 102,
+    "modal_markers": 0,
+    "ability_lines": 3,
+    "keywords": 1,
+    "is_vanilla": false,
+    "base_type": "Enchantment",
+    "color_bucket": "C",
+    "mana_value_band": "0-1",
+    "difficulty_score": 7.04
+   }
+  },
+  {
+   "oracle_id": "307be184-176a-40a8-944c-48aa00cfdd29",
+   "name": "Radiant Lotus",
+   "bucket": "medium",
+   "signals": {
+    "text_chars": 142,
+    "modal_markers": 1,
+    "ability_lines": 1,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Artifact",
+    "color_bucket": "C",
+    "mana_value_band": "6+",
+    "difficulty_score": 8.34
+   }
+  },
+  {
+   "oracle_id": "b259f4e4-04a9-40e0-85e9-34b4b74ee388",
+   "name": "Minds Aglow",
+   "bucket": "medium",
+   "signals": {
+    "text_chars": 150,
+    "modal_markers": 1,
+    "ability_lines": 1,
+    "keywords": 1,
+    "is_vanilla": false,
+    "base_type": "Sorcery",
+    "color_bucket": "U",
+    "mana_value_band": "0-1",
+    "difficulty_score": 9.0
+   }
+  },
+  {
+   "oracle_id": "6dfb50d7-359b-4644-90e3-7ecdacee7c12",
+   "name": "Scheming Symmetry",
+   "bucket": "medium",
+   "signals": {
+    "text_chars": 115,
+    "modal_markers": 1,
+    "ability_lines": 1,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Sorcery",
+    "color_bucket": "B",
+    "mana_value_band": "0-1",
+    "difficulty_score": 7.8
+   }
+  },
+  {
+   "oracle_id": "cac55e46-b730-4569-b92c-a4b5922fc20c",
+   "name": "Time Spiral",
+   "bucket": "medium",
+   "signals": {
+    "text_chars": 135,
+    "modal_markers": 1,
+    "ability_lines": 1,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Sorcery",
+    "color_bucket": "U",
+    "mana_value_band": "6+",
+    "difficulty_score": 8.2
+   }
+  },
+  {
+   "oracle_id": "8d1a3935-8a8c-4754-b474-189611188bc5",
+   "name": "Bind the Monster",
+   "bucket": "medium",
+   "signals": {
+    "text_chars": 175,
+    "modal_markers": 0,
+    "ability_lines": 3,
+    "keywords": 1,
+    "is_vanilla": false,
+    "base_type": "Enchantment",
+    "color_bucket": "U",
+    "mana_value_band": "0-1",
+    "difficulty_score": 8.5
+   }
+  },
+  {
+   "oracle_id": "dd963396-3f81-49ad-a68e-87b9764d7ac5",
+   "name": "Elemental Spectacle",
+   "bucket": "medium",
+   "signals": {
+    "text_chars": 195,
+    "modal_markers": 0,
+    "ability_lines": 1,
+    "keywords": 1,
+    "is_vanilla": false,
+    "base_type": "Sorcery",
+    "color_bucket": "G",
+    "mana_value_band": "6+",
+    "difficulty_score": 5.9
+   }
+  },
+  {
+   "oracle_id": "66805334-1015-4b41-ba9b-116de94b0744",
+   "name": "Honorable Passage",
+   "bucket": "medium",
+   "signals": {
+    "text_chars": 221,
+    "modal_markers": 1,
+    "ability_lines": 1,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Instant",
+    "color_bucket": "W",
+    "mana_value_band": "2-3",
+    "difficulty_score": 9.92
+   }
+  },
+  {
+   "oracle_id": "35fe3c61-8eaa-465d-ac34-63efda72fef2",
+   "name": "Scrambleverse",
+   "bucket": "medium",
+   "signals": {
+    "text_chars": 155,
+    "modal_markers": 1,
+    "ability_lines": 1,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Sorcery",
+    "color_bucket": "R",
+    "mana_value_band": "6+",
+    "difficulty_score": 8.6
+   }
+  },
+  {
+   "oracle_id": "4b033a0a-c1ae-44d7-9662-72cbbfda024b",
+   "name": "Aether Spellbomb",
+   "bucket": "medium",
+   "signals": {
+    "text_chars": 116,
+    "modal_markers": 0,
+    "ability_lines": 2,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Artifact",
+    "color_bucket": "U",
+    "mana_value_band": "0-1",
+    "difficulty_score": 5.32
+   }
+  },
+  {
+   "oracle_id": "f14ce7d7-6cfa-4f88-a381-d6e912c18b5d",
+   "name": "Bag of Tricks",
+   "bucket": "medium",
+   "signals": {
+    "text_chars": 232,
+    "modal_markers": 0,
+    "ability_lines": 1,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Artifact",
+    "color_bucket": "G",
+    "mana_value_band": "2-3",
+    "difficulty_score": 6.14
+   }
+  },
+  {
+   "oracle_id": "2f6c21a1-d618-497c-bfde-c0f2e1014d99",
+   "name": "Sylvok Battle-Chair",
+   "bucket": "medium",
+   "signals": {
+    "text_chars": 75,
+    "modal_markers": 0,
+    "ability_lines": 3,
+    "keywords": 2,
+    "is_vanilla": false,
+    "base_type": "Artifact",
+    "color_bucket": "G",
+    "mana_value_band": "6+",
+    "difficulty_score": 7.0
+   }
+  },
+  {
+   "oracle_id": "60fc4c2d-1bf9-4c9a-a240-ab9b1c9c6817",
+   "name": "Meeting of the Five",
+   "bucket": "medium",
+   "signals": {
+    "text_chars": 212,
+    "modal_markers": 1,
+    "ability_lines": 1,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Sorcery",
+    "color_bucket": "M5",
+    "mana_value_band": "6+",
+    "difficulty_score": 9.74
+   }
+  },
+  {
+   "oracle_id": "78541a40-c27a-49c0-aa3e-5a48b97065f0",
+   "name": "Scourglass",
+   "bucket": "medium",
+   "signals": {
+    "text_chars": 118,
+    "modal_markers": 1,
+    "ability_lines": 1,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Artifact",
+    "color_bucket": "W",
+    "mana_value_band": "4-5",
+    "difficulty_score": 7.86
+   }
+  },
+  {
+   "oracle_id": "242dfae4-504c-45d4-9a49-f7ab515fd23a",
+   "name": "Karrthus, Tyrant of Jund",
+   "bucket": "medium",
+   "signals": {
+    "text_chars": 135,
+    "modal_markers": 0,
+    "ability_lines": 3,
+    "keywords": 2,
+    "is_vanilla": false,
+    "base_type": "Creature",
+    "color_bucket": "M3",
+    "mana_value_band": "6+",
+    "difficulty_score": 8.2
+   }
+  },
+  {
+   "oracle_id": "45bd5e97-f34e-47bc-ad21-da42d3444431",
+   "name": "Zektar Shrine Expedition",
+   "bucket": "hard",
+   "signals": {
+    "text_chars": 277,
+    "modal_markers": 2,
+    "ability_lines": 2,
+    "keywords": 1,
+    "is_vanilla": false,
+    "base_type": "Enchantment",
+    "color_bucket": "R",
+    "mana_value_band": "2-3",
+    "difficulty_score": 17.04
+   }
+  },
+  {
+   "oracle_id": "38a55562-1e2d-4240-9454-219a4a25d38d",
+   "name": "Lord Windgrace",
+   "bucket": "hard",
+   "signals": {
+    "text_chars": 338,
+    "modal_markers": 2,
+    "ability_lines": 4,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Planeswalker",
+    "color_bucket": "M3",
+    "mana_value_band": "4-5",
+    "difficulty_score": 20.76
+   }
+  },
+  {
+   "oracle_id": "335b5302-2272-405a-b2b8-3943b3df335f",
+   "name": "Dakkon, Shadow Slayer",
+   "bucket": "hard",
+   "signals": {
+    "text_chars": 221,
+    "modal_markers": 1,
+    "ability_lines": 4,
+    "keywords": 1,
+    "is_vanilla": false,
+    "base_type": "Planeswalker",
+    "color_bucket": "M3",
+    "mana_value_band": "2-3",
+    "difficulty_score": 14.92
+   }
+  },
+  {
+   "oracle_id": "afb278f1-0e21-4f6d-96bb-c34aa3ef96b0",
+   "name": "Tyrant's Scorn",
+   "bucket": "hard",
+   "signals": {
+    "text_chars": 111,
+    "modal_markers": 1,
+    "ability_lines": 3,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Instant",
+    "color_bucket": "M2",
+    "mana_value_band": "2-3",
+    "difficulty_score": 10.72
+   }
+  },
+  {
+   "oracle_id": "b26e3596-5b28-4eb6-b3e2-03f63d8c6d49",
+   "name": "Deathreap Ritual",
+   "bucket": "hard",
+   "signals": {
+    "text_chars": 94,
+    "modal_markers": 2,
+    "ability_lines": 1,
+    "keywords": 1,
+    "is_vanilla": false,
+    "base_type": "Enchantment",
+    "color_bucket": "M2",
+    "mana_value_band": "4-5",
+    "difficulty_score": 11.88
+   }
+  },
+  {
+   "oracle_id": "a9d72f78-2ab5-4e2e-ab7b-ef875e0a0609",
+   "name": "Lost Jitte",
+   "bucket": "hard",
+   "signals": {
+    "text_chars": 253,
+    "modal_markers": 2,
+    "ability_lines": 6,
+    "keywords": 1,
+    "is_vanilla": false,
+    "base_type": "Artifact",
+    "color_bucket": "C",
+    "mana_value_band": "0-1",
+    "difficulty_score": 22.56
+   }
+  },
+  {
+   "oracle_id": "ef47c447-bd7f-43c6-b4db-4a848c39820c",
+   "name": "Visions of Glory",
+   "bucket": "hard",
+   "signals": {
+    "text_chars": 236,
+    "modal_markers": 1,
+    "ability_lines": 2,
+    "keywords": 1,
+    "is_vanilla": false,
+    "base_type": "Sorcery",
+    "color_bucket": "W",
+    "mana_value_band": "4-5",
+    "difficulty_score": 12.22
+   }
+  },
+  {
+   "oracle_id": "a9bbaad7-c016-4908-a6a7-2c26112a6bf6",
+   "name": "Gideon of the Trials",
+   "bucket": "hard",
+   "signals": {
+    "text_chars": 382,
+    "modal_markers": 3,
+    "ability_lines": 3,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Planeswalker",
+    "color_bucket": "W",
+    "mana_value_band": "2-3",
+    "difficulty_score": 24.14
+   }
+  },
+  {
+   "oracle_id": "fc315174-d063-41dd-9379-11d95c5fd4ed",
+   "name": "The Horus Heresy",
+   "bucket": "hard",
+   "signals": {
+    "text_chars": 309,
+    "modal_markers": 4,
+    "ability_lines": 4,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Enchantment",
+    "color_bucket": "M3",
+    "mana_value_band": "6+",
+    "difficulty_score": 28.18
+   }
+  },
+  {
+   "oracle_id": "56edd306-8676-49c4-b3c3-5ff840536c3a",
+   "name": "Termination Facilitator",
+   "bucket": "hard",
+   "signals": {
+    "text_chars": 203,
+    "modal_markers": 1,
+    "ability_lines": 2,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Creature",
+    "color_bucket": "B",
+    "mana_value_band": "2-3",
+    "difficulty_score": 11.06
+   }
+  },
+  {
+   "oracle_id": "c3974ec7-7af0-4b65-baf6-4c1c4fe8a5c4",
+   "name": "Ajani, Strength of the Pride",
+   "bucket": "hard",
+   "signals": {
+    "text_chars": 383,
+    "modal_markers": 1,
+    "ability_lines": 3,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Planeswalker",
+    "color_bucket": "W",
+    "mana_value_band": "4-5",
+    "difficulty_score": 16.16
+   }
+  },
+  {
+   "oracle_id": "f125b6b0-c5ff-44d1-bf99-ebc537d37fc3",
+   "name": "Undergrowth",
+   "bucket": "hard",
+   "signals": {
+    "text_chars": 239,
+    "modal_markers": 3,
+    "ability_lines": 2,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Instant",
+    "color_bucket": "M2",
+    "mana_value_band": "0-1",
+    "difficulty_score": 19.78
+   }
+  },
+  {
+   "oracle_id": "524b00ea-0372-40f9-a6a1-76a8497a1ea6",
+   "name": "Nicol Bolas, the Deceiver",
+   "bucket": "hard",
+   "signals": {
+    "text_chars": 230,
+    "modal_markers": 1,
+    "ability_lines": 3,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Planeswalker",
+    "color_bucket": "M3",
+    "mana_value_band": "6+",
+    "difficulty_score": 13.1
+   }
+  },
+  {
+   "oracle_id": "bec04768-c573-4886-9ca1-2511abc05a14",
+   "name": "Concord with the Kami",
+   "bucket": "hard",
+   "signals": {
+    "text_chars": 254,
+    "modal_markers": 1,
+    "ability_lines": 4,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Enchantment",
+    "color_bucket": "G",
+    "mana_value_band": "4-5",
+    "difficulty_score": 15.08
+   }
+  },
+  {
+   "oracle_id": "9e9cde32-0568-44bc-a00a-9709f15c1350",
+   "name": "Aether Refinery",
+   "bucket": "hard",
+   "signals": {
+    "text_chars": 225,
+    "modal_markers": 4,
+    "ability_lines": 2,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Artifact",
+    "color_bucket": "R",
+    "mana_value_band": "6+",
+    "difficulty_score": 23.5
+   }
+  },
+  {
+   "oracle_id": "ec7699e3-ce56-46e4-9e4d-5ed2bd5fca83",
+   "name": "Null Elemental Blast",
+   "bucket": "hard",
+   "signals": {
+    "text_chars": 90,
+    "modal_markers": 1,
+    "ability_lines": 3,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Instant",
+    "color_bucket": "C",
+    "mana_value_band": "0-1",
+    "difficulty_score": 10.3
+   }
+  },
+  {
+   "oracle_id": "cf3234f2-09d7-4d8b-b871-3bf0fcb75b6d",
+   "name": "Cut Propulsion",
+   "bucket": "hard",
+   "signals": {
+    "text_chars": 138,
+    "modal_markers": 2,
+    "ability_lines": 1,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Instant",
+    "color_bucket": "R",
+    "mana_value_band": "2-3",
+    "difficulty_score": 12.26
+   }
+  },
+  {
+   "oracle_id": "a7950edb-5670-46fd-a30e-0fe888a5a32b",
+   "name": "Phyrexian Dreadnought",
+   "bucket": "hard",
+   "signals": {
+    "text_chars": 124,
+    "modal_markers": 2,
+    "ability_lines": 2,
+    "keywords": 1,
+    "is_vanilla": false,
+    "base_type": "Creature",
+    "color_bucket": "C",
+    "mana_value_band": "0-1",
+    "difficulty_score": 13.98
+   }
+  },
+  {
+   "oracle_id": "5020628c-5e47-4a83-89c3-7bf5726e69ad",
+   "name": "Ruinous Rampage",
+   "bucket": "hard",
+   "signals": {
+    "text_chars": 112,
+    "modal_markers": 1,
+    "ability_lines": 3,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Sorcery",
+    "color_bucket": "R",
+    "mana_value_band": "2-3",
+    "difficulty_score": 10.74
+   }
+  },
+  {
+   "oracle_id": "aa2da79c-b36c-4120-8d7d-f5571e87e45e",
+   "name": "Blood Tribute",
+   "bucket": "hard",
+   "signals": {
+    "text_chars": 167,
+    "modal_markers": 1,
+    "ability_lines": 2,
+    "keywords": 1,
+    "is_vanilla": false,
+    "base_type": "Sorcery",
+    "color_bucket": "B",
+    "mana_value_band": "6+",
+    "difficulty_score": 10.84
+   }
+  },
+  {
+   "oracle_id": "13a3e61d-c9ff-447d-9016-09a183b7af1d",
+   "name": "Tazri, Stalwart Survivor",
+   "bucket": "hard",
+   "signals": {
+    "text_chars": 362,
+    "modal_markers": 0,
+    "ability_lines": 2,
+    "keywords": 1,
+    "is_vanilla": false,
+    "base_type": "Creature",
+    "color_bucket": "M5",
+    "mana_value_band": "2-3",
+    "difficulty_score": 10.74
+   }
+  },
+  {
+   "oracle_id": "8d134a60-e1e5-4163-8bdc-36af91567185",
+   "name": "Gaea's Liege",
+   "bucket": "hard",
+   "signals": {
+    "text_chars": 324,
+    "modal_markers": 2,
+    "ability_lines": 2,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Creature",
+    "color_bucket": "G",
+    "mana_value_band": "6+",
+    "difficulty_score": 17.48
+   }
+  },
+  {
+   "oracle_id": "d1b74fb9-8ef3-40be-bc79-45ffb4c597eb",
+   "name": "Hangar Scrounger",
+   "bucket": "hard",
+   "signals": {
+    "text_chars": 95,
+    "modal_markers": 2,
+    "ability_lines": 2,
+    "keywords": 1,
+    "is_vanilla": false,
+    "base_type": "Creature",
+    "color_bucket": "R",
+    "mana_value_band": "2-3",
+    "difficulty_score": 13.4
+   }
+  },
+  {
+   "oracle_id": "c9cd57f6-1f69-4ea1-9672-ca944759c7e8",
+   "name": "Desecrate Reality",
+   "bucket": "hard",
+   "signals": {
+    "text_chars": 257,
+    "modal_markers": 2,
+    "ability_lines": 2,
+    "keywords": 1,
+    "is_vanilla": false,
+    "base_type": "Instant",
+    "color_bucket": "C",
+    "mana_value_band": "6+",
+    "difficulty_score": 16.64
+   }
+  },
+  {
+   "oracle_id": "151388a4-a24b-4089-a323-e7c1d5e6490a",
+   "name": "Slow Motion",
+   "bucket": "hard",
+   "signals": {
+    "text_chars": 233,
+    "modal_markers": 1,
+    "ability_lines": 3,
+    "keywords": 1,
+    "is_vanilla": false,
+    "base_type": "Enchantment",
+    "color_bucket": "U",
+    "mana_value_band": "2-3",
+    "difficulty_score": 13.66
+   }
+  },
+  {
+   "oracle_id": "76a416fa-d97b-4c24-af41-b2382f1fd546",
+   "name": "Sontaran General",
+   "bucket": "hard",
+   "signals": {
+    "text_chars": 201,
+    "modal_markers": 3,
+    "ability_lines": 2,
+    "keywords": 4,
+    "is_vanilla": false,
+    "base_type": "Creature",
+    "color_bucket": "R",
+    "mana_value_band": "4-5",
+    "difficulty_score": 21.02
+   }
+  },
+  {
+   "oracle_id": "ddf461b9-a205-4dc7-a9c3-c047b1ff709f",
+   "name": "Aang's Journey",
+   "bucket": "hard",
+   "signals": {
+    "text_chars": 224,
+    "modal_markers": 1,
+    "ability_lines": 3,
+    "keywords": 1,
+    "is_vanilla": false,
+    "base_type": "Sorcery",
+    "color_bucket": "C",
+    "mana_value_band": "2-3",
+    "difficulty_score": 13.48
+   }
+  },
+  {
+   "oracle_id": "6487fc1b-5c83-4d09-94d3-175725bcb922",
+   "name": "Brigid's Command",
+   "bucket": "hard",
+   "signals": {
+    "text_chars": 279,
+    "modal_markers": 1,
+    "ability_lines": 5,
+    "keywords": 1,
+    "is_vanilla": false,
+    "base_type": "Sorcery",
+    "color_bucket": "M2",
+    "mana_value_band": "2-3",
+    "difficulty_score": 17.58
+   }
+  },
+  {
+   "oracle_id": "06f7ec6d-d70e-44d8-bf43-ae667d244ab4",
+   "name": "Espers to Magicite",
+   "bucket": "hard",
+   "signals": {
+    "text_chars": 202,
+    "modal_markers": 3,
+    "ability_lines": 1,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Instant",
+    "color_bucket": "B",
+    "mana_value_band": "4-5",
+    "difficulty_score": 17.54
+   }
+  },
+  {
+   "oracle_id": "55cba59c-932c-4295-87dc-9179fbdfbd53",
+   "name": "One Last Job",
+   "bucket": "hard",
+   "signals": {
+    "text_chars": 285,
+    "modal_markers": 0,
+    "ability_lines": 4,
+    "keywords": 1,
+    "is_vanilla": false,
+    "base_type": "Sorcery",
+    "color_bucket": "W",
+    "mana_value_band": "2-3",
+    "difficulty_score": 12.2
+   }
+  },
+  {
+   "oracle_id": "615a149a-2869-4b18-bbbe-9ec1825049d7",
+   "name": "Thwart",
+   "bucket": "hard",
+   "signals": {
+    "text_chars": 124,
+    "modal_markers": 2,
+    "ability_lines": 2,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Instant",
+    "color_bucket": "U",
+    "mana_value_band": "4-5",
+    "difficulty_score": 13.48
+   }
+  },
+  {
+   "oracle_id": "6fd5e591-fae8-4128-a4d3-a848c8a8ffda",
+   "name": "Fist of Suns",
+   "bucket": "hard",
+   "signals": {
+    "text_chars": 78,
+    "modal_markers": 2,
+    "ability_lines": 1,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Artifact",
+    "color_bucket": "M5",
+    "mana_value_band": "2-3",
+    "difficulty_score": 11.06
+   }
+  },
+  {
+   "oracle_id": "2aa0e0e5-cb6d-4518-8eff-d29f935486e0",
+   "name": "Nourishing Shoal",
+   "bucket": "hard",
+   "signals": {
+    "text_chars": 116,
+    "modal_markers": 2,
+    "ability_lines": 2,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Instant",
+    "color_bucket": "G",
+    "mana_value_band": "2-3",
+    "difficulty_score": 13.32
+   }
+  },
+  {
+   "oracle_id": "ac5487ba-6d6e-47ee-ae29-776e186789cc",
+   "name": "Captive Weird // Compleated Conjurer",
+   "bucket": "hard",
+   "signals": {
+    "text_chars": 257,
+    "modal_markers": 1,
+    "ability_lines": 6,
+    "keywords": 2,
+    "is_vanilla": false,
+    "base_type": "Creature",
+    "color_bucket": "M2",
+    "mana_value_band": "0-1",
+    "difficulty_score": 19.14
+   }
+  },
+  {
+   "oracle_id": "d0375311-b0ea-4870-bc2c-4894da088dc3",
+   "name": "Ellywick Tumblestrum",
+   "bucket": "hard",
+   "signals": {
+    "text_chars": 389,
+    "modal_markers": 3,
+    "ability_lines": 3,
+    "keywords": 1,
+    "is_vanilla": false,
+    "base_type": "Planeswalker",
+    "color_bucket": "G",
+    "mana_value_band": "4-5",
+    "difficulty_score": 24.78
+   }
+  },
+  {
+   "oracle_id": "fecbbc79-2f74-46b3-a049-45736f904f58",
+   "name": "Prisoner's Dilemma",
+   "bucket": "hard",
+   "signals": {
+    "text_chars": 347,
+    "modal_markers": 0,
+    "ability_lines": 2,
+    "keywords": 1,
+    "is_vanilla": false,
+    "base_type": "Sorcery",
+    "color_bucket": "R",
+    "mana_value_band": "4-5",
+    "difficulty_score": 10.44
+   }
+  },
+  {
+   "oracle_id": "4c6a0c30-b547-4eff-8ff4-0ca25803c076",
+   "name": "Urza's Saga",
+   "bucket": "hard",
+   "signals": {
+    "text_chars": 302,
+    "modal_markers": 1,
+    "ability_lines": 4,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Enchantment",
+    "color_bucket": "C",
+    "mana_value_band": "0-1",
+    "difficulty_score": 16.04
+   }
+  },
+  {
+   "oracle_id": "164651c5-b831-4070-8491-16d30ac8395b",
+   "name": "Unite the Coalition",
+   "bucket": "hard",
+   "signals": {
+    "text_chars": 247,
+    "modal_markers": 1,
+    "ability_lines": 6,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Instant",
+    "color_bucket": "M5",
+    "mana_value_band": "6+",
+    "difficulty_score": 17.94
+   }
+  },
+  {
+   "oracle_id": "45a8c126-5396-4736-a37e-460a50706a98",
+   "name": "Escape to the Wilds",
+   "bucket": "hard",
+   "signals": {
+    "text_chars": 152,
+    "modal_markers": 2,
+    "ability_lines": 2,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Sorcery",
+    "color_bucket": "M2",
+    "mana_value_band": "4-5",
+    "difficulty_score": 14.04
+   }
+  },
+  {
+   "oracle_id": "e744dbb6-2d56-462a-8d49-d79c73944048",
+   "name": "Portent",
+   "bucket": "hard",
+   "signals": {
+    "text_chars": 178,
+    "modal_markers": 1,
+    "ability_lines": 2,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Sorcery",
+    "color_bucket": "U",
+    "mana_value_band": "0-1",
+    "difficulty_score": 10.56
+   }
+  },
+  {
+   "oracle_id": "ba4d644f-1931-4fc4-aed5-681a476a5a58",
+   "name": "Cease // Desist",
+   "bucket": "hard",
+   "signals": {
+    "text_chars": 154,
+    "modal_markers": 1,
+    "ability_lines": 5,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Instant",
+    "color_bucket": "M3",
+    "mana_value_band": "6+",
+    "difficulty_score": 14.58
+   }
+  },
+  {
+   "oracle_id": "6fd44fb9-3433-4cb0-95a4-4ac8170b2166",
+   "name": "S.H.I.E.L.D. Spy Kit",
+   "bucket": "hard",
+   "signals": {
+    "text_chars": 102,
+    "modal_markers": 1,
+    "ability_lines": 3,
+    "keywords": 2,
+    "is_vanilla": false,
+    "base_type": "Artifact",
+    "color_bucket": "W",
+    "mana_value_band": "0-1",
+    "difficulty_score": 11.54
+   }
+  },
+  {
+   "oracle_id": "e3c8e552-d315-486d-a176-813b3a300174",
+   "name": "Professor's Warning",
+   "bucket": "hard",
+   "signals": {
+    "text_chars": 112,
+    "modal_markers": 1,
+    "ability_lines": 3,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Instant",
+    "color_bucket": "B",
+    "mana_value_band": "0-1",
+    "difficulty_score": 10.74
+   }
+  },
+  {
+   "oracle_id": "65f8e726-be50-49ee-96fc-d3a2080d7b8c",
+   "name": "Chamber Sentry",
+   "bucket": "hard",
+   "signals": {
+    "text_chars": 243,
+    "modal_markers": 1,
+    "ability_lines": 3,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Creature",
+    "color_bucket": "M5",
+    "mana_value_band": "0-1",
+    "difficulty_score": 13.36
+   }
+  },
+  {
+   "oracle_id": "07995092-af6c-43b8-b30b-17e020ead37c",
+   "name": "Thunderous Debut",
+   "bucket": "hard",
+   "signals": {
+    "text_chars": 248,
+    "modal_markers": 2,
+    "ability_lines": 2,
+    "keywords": 1,
+    "is_vanilla": false,
+    "base_type": "Sorcery",
+    "color_bucket": "G",
+    "mana_value_band": "6+",
+    "difficulty_score": 16.46
+   }
+  },
+  {
+   "oracle_id": "060209fa-4b7d-4e08-bf8b-8759bba5641b",
+   "name": "Karn, Scion of Urza",
+   "bucket": "hard",
+   "signals": {
+    "text_chars": 355,
+    "modal_markers": 1,
+    "ability_lines": 3,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Planeswalker",
+    "color_bucket": "C",
+    "mana_value_band": "4-5",
+    "difficulty_score": 15.6
+   }
+  },
+  {
+   "oracle_id": "c0ef21d5-f4bf-4417-b701-d98c2dbbaa43",
+   "name": "Thirsting Roots",
+   "bucket": "hard",
+   "signals": {
+    "text_chars": 120,
+    "modal_markers": 1,
+    "ability_lines": 3,
+    "keywords": 1,
+    "is_vanilla": false,
+    "base_type": "Sorcery",
+    "color_bucket": "G",
+    "mana_value_band": "0-1",
+    "difficulty_score": 11.4
+   }
+  },
+  {
+   "oracle_id": "d0a1f39b-cda4-4925-83f8-2161f575edfb",
+   "name": "Argentum Armor",
+   "bucket": "hard",
+   "signals": {
+    "text_chars": 101,
+    "modal_markers": 1,
+    "ability_lines": 3,
+    "keywords": 1,
+    "is_vanilla": false,
+    "base_type": "Artifact",
+    "color_bucket": "C",
+    "mana_value_band": "6+",
+    "difficulty_score": 11.02
+   }
+  },
+  {
+   "oracle_id": "740fe41a-16bb-4c97-a03c-f678f15a0a0c",
+   "name": "Wizard's Spellbook",
+   "bucket": "hard",
+   "signals": {
+    "text_chars": 356,
+    "modal_markers": 5,
+    "ability_lines": 4,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Artifact",
+    "color_bucket": "U",
+    "mana_value_band": "6+",
+    "difficulty_score": 33.12
+   }
+  },
+  {
+   "oracle_id": "46ed38d1-e642-4cea-99ed-a9c17fd982b1",
+   "name": "Sultai Charm",
+   "bucket": "hard",
+   "signals": {
+    "text_chars": 132,
+    "modal_markers": 1,
+    "ability_lines": 4,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Instant",
+    "color_bucket": "M3",
+    "mana_value_band": "2-3",
+    "difficulty_score": 12.64
+   }
+  },
+  {
+   "oracle_id": "dfd3adec-033b-47ed-a227-ea1f48b4057c",
+   "name": "Rise of the Hobgoblins",
+   "bucket": "hard",
+   "signals": {
+    "text_chars": 206,
+    "modal_markers": 1,
+    "ability_lines": 2,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Enchantment",
+    "color_bucket": "M2",
+    "mana_value_band": "2-3",
+    "difficulty_score": 11.12
+   }
+  },
+  {
+   "oracle_id": "0b299983-9f0f-404a-acd1-8f142572b1f1",
+   "name": "Extus, Oriq Overlord // Awaken the Blood Avatar",
+   "bucket": "hard",
+   "signals": {
+    "text_chars": 545,
+    "modal_markers": 5,
+    "ability_lines": 7,
+    "keywords": 2,
+    "is_vanilla": false,
+    "base_type": "Creature",
+    "color_bucket": "M3",
+    "mana_value_band": "4-5",
+    "difficulty_score": 42.4
+   }
+  },
+  {
+   "oracle_id": "52159875-354c-47f9-bb1c-cd65395fcc68",
+   "name": "Fiery Emancipation",
+   "bucket": "hard",
+   "signals": {
+    "text_chars": 132,
+    "modal_markers": 2,
+    "ability_lines": 1,
+    "keywords": 1,
+    "is_vanilla": false,
+    "base_type": "Enchantment",
+    "color_bucket": "R",
+    "mana_value_band": "6+",
+    "difficulty_score": 12.64
+   }
+  },
+  {
+   "oracle_id": "6e412163-a93a-4738-a8f0-a4d27c960360",
+   "name": "Clout of the Dominus",
+   "bucket": "hard",
+   "signals": {
+    "text_chars": 152,
+    "modal_markers": 2,
+    "ability_lines": 3,
+    "keywords": 1,
+    "is_vanilla": false,
+    "base_type": "Enchantment",
+    "color_bucket": "M2",
+    "mana_value_band": "0-1",
+    "difficulty_score": 16.04
+   }
+  },
+  {
+   "oracle_id": "92442ca0-e49d-4fab-8d3a-83405c1b1437",
+   "name": "Echo Storm",
+   "bucket": "hard",
+   "signals": {
+    "text_chars": 199,
+    "modal_markers": 2,
+    "ability_lines": 2,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Sorcery",
+    "color_bucket": "U",
+    "mana_value_band": "4-5",
+    "difficulty_score": 14.98
+   }
+  },
+  {
+   "oracle_id": "18bdc181-9592-4147-81fb-7f83ce137f70",
+   "name": "Ugin, the Ineffable",
+   "bucket": "hard",
+   "signals": {
+    "text_chars": 291,
+    "modal_markers": 0,
+    "ability_lines": 3,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Planeswalker",
+    "color_bucket": "C",
+    "mana_value_band": "6+",
+    "difficulty_score": 10.32
+   }
+  },
+  {
+   "oracle_id": "7fe361ef-a168-4847-92a2-21c1661aac06",
+   "name": "Thieves' Tools",
+   "bucket": "hard",
+   "signals": {
+    "text_chars": 132,
+    "modal_markers": 1,
+    "ability_lines": 3,
+    "keywords": 2,
+    "is_vanilla": false,
+    "base_type": "Artifact",
+    "color_bucket": "B",
+    "mana_value_band": "2-3",
+    "difficulty_score": 12.14
+   }
+  },
+  {
+   "oracle_id": "3f6101a5-3038-45b0-8302-b2e4127b9510",
+   "name": "Rally the Monastery",
+   "bucket": "hard",
+   "signals": {
+    "text_chars": 270,
+    "modal_markers": 2,
+    "ability_lines": 5,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Instant",
+    "color_bucket": "W",
+    "mana_value_band": "4-5",
+    "difficulty_score": 20.9
+   }
+  },
+  {
+   "oracle_id": "b8bb97a8-5f5d-48e9-a4c1-b4c20efe7739",
+   "name": "Bedeck // Bedazzle",
+   "bucket": "hard",
+   "signals": {
+    "text_chars": 154,
+    "modal_markers": 0,
+    "ability_lines": 5,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Instant",
+    "color_bucket": "M2",
+    "mana_value_band": "6+",
+    "difficulty_score": 10.58
+   }
+  },
+  {
+   "oracle_id": "f82c628c-c01a-4a1c-af9a-e296ba50f12f",
+   "name": "Marshaling the Troops",
+   "bucket": "hard",
+   "signals": {
+    "text_chars": 100,
+    "modal_markers": 2,
+    "ability_lines": 1,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Sorcery",
+    "color_bucket": "G",
+    "mana_value_band": "2-3",
+    "difficulty_score": 11.5
+   }
+  },
+  {
+   "oracle_id": "635fe908-6f58-4c9e-ac55-0775a7c6f278",
+   "name": "Angel of Vitality",
+   "bucket": "hard",
+   "signals": {
+    "text_chars": 132,
+    "modal_markers": 4,
+    "ability_lines": 3,
+    "keywords": 1,
+    "is_vanilla": false,
+    "base_type": "Creature",
+    "color_bucket": "W",
+    "mana_value_band": "2-3",
+    "difficulty_score": 23.64
+   }
+  },
+  {
+   "oracle_id": "42b9d383-3fe2-4fc8-ab86-f80a288d502b",
+   "name": "Murmuring Bosk",
+   "bucket": "hard",
+   "signals": {
+    "text_chars": 160,
+    "modal_markers": 1,
+    "ability_lines": 3,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Land",
+    "color_bucket": "M3",
+    "mana_value_band": "0-1",
+    "difficulty_score": 11.7
+   }
+  },
+  {
+   "oracle_id": "7d84e667-2f14-437c-be4f-161b98d59341",
+   "name": "Vassal's Duty",
+   "bucket": "hard",
+   "signals": {
+    "text_chars": 118,
+    "modal_markers": 2,
+    "ability_lines": 1,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Enchantment",
+    "color_bucket": "W",
+    "mana_value_band": "4-5",
+    "difficulty_score": 11.86
+   }
+  },
+  {
+   "oracle_id": "9fda1239-97ca-41f0-8bfa-040484769396",
+   "name": "Outlaw Stitcher",
+   "bucket": "hard",
+   "signals": {
+    "text_chars": 196,
+    "modal_markers": 1,
+    "ability_lines": 2,
+    "keywords": 1,
+    "is_vanilla": false,
+    "base_type": "Creature",
+    "color_bucket": "U",
+    "mana_value_band": "4-5",
+    "difficulty_score": 11.42
+   }
+  },
+  {
+   "oracle_id": "9260ae3d-59bf-4e46-a13e-930754c3f0d2",
+   "name": "Kaya, Intangible Slayer",
+   "bucket": "hard",
+   "signals": {
+    "text_chars": 298,
+    "modal_markers": 2,
+    "ability_lines": 4,
+    "keywords": 2,
+    "is_vanilla": false,
+    "base_type": "Planeswalker",
+    "color_bucket": "M2",
+    "mana_value_band": "6+",
+    "difficulty_score": 20.96
+   }
+  },
+  {
+   "oracle_id": "31cb87bf-1020-4fd5-95f7-8ecb197d823b",
+   "name": "Pia Nalaar, Chief Mechanic",
+   "bucket": "hard",
+   "signals": {
+    "text_chars": 313,
+    "modal_markers": 2,
+    "ability_lines": 2,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Creature",
+    "color_bucket": "M3",
+    "mana_value_band": "2-3",
+    "difficulty_score": 17.26
+   }
+  },
+  {
+   "oracle_id": "b1ffba56-1c1b-44a5-ad8c-097c417ab276",
+   "name": "Chaos Shrine's Black Crystal",
+   "bucket": "hard",
+   "signals": {
+    "text_chars": 229,
+    "modal_markers": 2,
+    "ability_lines": 2,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Artifact",
+    "color_bucket": "B",
+    "mana_value_band": "4-5",
+    "difficulty_score": 15.58
+   }
+  },
+  {
+   "oracle_id": "8b84fec5-617c-4088-8250-2ba1f1f9479a",
+   "name": "Balamb Garden, SeeD Academy // Balamb Garden, Airborne",
+   "bucket": "hard",
+   "signals": {
+    "text_chars": 269,
+    "modal_markers": 2,
+    "ability_lines": 9,
+    "keywords": 3,
+    "is_vanilla": false,
+    "base_type": "Artifact",
+    "color_bucket": "M2",
+    "mana_value_band": "0-1",
+    "difficulty_score": 28.38
+   }
+  },
+  {
+   "oracle_id": "c1972a20-5308-4ee4-b234-751b805d30e4",
+   "name": "Rancid Earth",
+   "bucket": "hard",
+   "signals": {
+    "text_chars": 176,
+    "modal_markers": 1,
+    "ability_lines": 2,
+    "keywords": 1,
+    "is_vanilla": false,
+    "base_type": "Sorcery",
+    "color_bucket": "B",
+    "mana_value_band": "2-3",
+    "difficulty_score": 11.02
+   }
+  },
+  {
+   "oracle_id": "21bb3c03-c1c0-40ec-8df4-8d0054c3742b",
+   "name": "Visage of Bolas",
+   "bucket": "hard",
+   "signals": {
+    "text_chars": 226,
+    "modal_markers": 1,
+    "ability_lines": 2,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Artifact",
+    "color_bucket": "M3",
+    "mana_value_band": "4-5",
+    "difficulty_score": 11.52
+   }
+  },
+  {
+   "oracle_id": "c2d04138-cc17-4dd0-9a4c-9c87df72ed01",
+   "name": "Saruman of Many Colors",
+   "bucket": "hard",
+   "signals": {
+    "text_chars": 379,
+    "modal_markers": 2,
+    "ability_lines": 2,
+    "keywords": 2,
+    "is_vanilla": false,
+    "base_type": "Creature",
+    "color_bucket": "M3",
+    "mana_value_band": "6+",
+    "difficulty_score": 19.58
+   }
+  },
+  {
+   "oracle_id": "d82c77a1-2b81-415d-9f18-47e059c15e01",
+   "name": "Doors of Durin",
+   "bucket": "hard",
+   "signals": {
+    "text_chars": 267,
+    "modal_markers": 2,
+    "ability_lines": 1,
+    "keywords": 1,
+    "is_vanilla": false,
+    "base_type": "Artifact",
+    "color_bucket": "M2",
+    "mana_value_band": "4-5",
+    "difficulty_score": 15.34
+   }
+  },
+  {
+   "oracle_id": "aeec8e85-6571-4da6-8a48-f5d3985ca10b",
+   "name": "Sylvan Reclamation",
+   "bucket": "hard",
+   "signals": {
+    "text_chars": 75,
+    "modal_markers": 1,
+    "ability_lines": 2,
+    "keywords": 4,
+    "is_vanilla": false,
+    "base_type": "Instant",
+    "color_bucket": "M2",
+    "mana_value_band": "4-5",
+    "difficulty_score": 10.5
+   }
+  },
+  {
+   "oracle_id": "e49c4d9a-6413-440f-ba5b-396fea6c03d9",
+   "name": "Simian Sling",
+   "bucket": "hard",
+   "signals": {
+    "text_chars": 145,
+    "modal_markers": 1,
+    "ability_lines": 3,
+    "keywords": 1,
+    "is_vanilla": false,
+    "base_type": "Creature",
+    "color_bucket": "R",
+    "mana_value_band": "0-1",
+    "difficulty_score": 11.9
+   }
+  },
+  {
+   "oracle_id": "f2fae95d-074b-4c0c-99cd-f9385a424c05",
+   "name": "Villainous Wealth",
+   "bucket": "hard",
+   "signals": {
+    "text_chars": 165,
+    "modal_markers": 2,
+    "ability_lines": 1,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Sorcery",
+    "color_bucket": "M3",
+    "mana_value_band": "2-3",
+    "difficulty_score": 12.8
+   }
+  },
+  {
+   "oracle_id": "04e2afbe-0c08-42bc-93e6-662066a958bf",
+   "name": "Deadly Cover-Up",
+   "bucket": "hard",
+   "signals": {
+    "text_chars": 357,
+    "modal_markers": 3,
+    "ability_lines": 2,
+    "keywords": 1,
+    "is_vanilla": false,
+    "base_type": "Sorcery",
+    "color_bucket": "B",
+    "mana_value_band": "4-5",
+    "difficulty_score": 22.64
+   }
+  },
+  {
+   "oracle_id": "3ceb23f5-abb1-4569-a1e4-1eed9a9babcf",
+   "name": "Call the Spirit Dragons",
+   "bucket": "hard",
+   "signals": {
+    "text_chars": 218,
+    "modal_markers": 1,
+    "ability_lines": 2,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Enchantment",
+    "color_bucket": "M5",
+    "mana_value_band": "4-5",
+    "difficulty_score": 11.36
+   }
+  },
+  {
+   "oracle_id": "66953dfd-d908-41d3-abb4-309c6a165dc3",
+   "name": "Psychic Theft",
+   "bucket": "hard",
+   "signals": {
+    "text_chars": 257,
+    "modal_markers": 2,
+    "ability_lines": 1,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Sorcery",
+    "color_bucket": "U",
+    "mana_value_band": "2-3",
+    "difficulty_score": 14.64
+   }
+  },
+  {
+   "oracle_id": "0afcf1eb-ac2c-4bb0-8823-9fe45968c2d9",
+   "name": "The Fourteenth Doctor",
+   "bucket": "hard",
+   "signals": {
+    "text_chars": 372,
+    "modal_markers": 2,
+    "ability_lines": 2,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Creature",
+    "color_bucket": "M4",
+    "mana_value_band": "2-3",
+    "difficulty_score": 18.44
+   }
+  },
+  {
+   "oracle_id": "692a6833-3014-42f6-b1ad-333bb3292c65",
+   "name": "Thought Reflection",
+   "bucket": "hard",
+   "signals": {
+    "text_chars": 49,
+    "modal_markers": 2,
+    "ability_lines": 1,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Enchantment",
+    "color_bucket": "U",
+    "mana_value_band": "6+",
+    "difficulty_score": 10.48
+   }
+  },
+  {
+   "oracle_id": "dd3cc9e5-b99a-429c-baeb-663a7af70081",
+   "name": "Faith's Shield",
+   "bucket": "hard",
+   "signals": {
+    "text_chars": 245,
+    "modal_markers": 1,
+    "ability_lines": 2,
+    "keywords": 1,
+    "is_vanilla": false,
+    "base_type": "Instant",
+    "color_bucket": "W",
+    "mana_value_band": "0-1",
+    "difficulty_score": 12.4
+   }
+  },
+  {
+   "oracle_id": "634bd800-8caa-47ae-8b70-2c66baf9a355",
+   "name": "Dune-Brood Nephilim",
+   "bucket": "hard",
+   "signals": {
+    "text_chars": 125,
+    "modal_markers": 2,
+    "ability_lines": 1,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Creature",
+    "color_bucket": "M4",
+    "mana_value_band": "4-5",
+    "difficulty_score": 12.0
+   }
+  },
+  {
+   "oracle_id": "b6c0ee14-2028-4e8b-9acd-ff78821bca9b",
+   "name": "Bruce Banner // The Incredible Hulk",
+   "bucket": "hard",
+   "signals": {
+    "text_chars": 344,
+    "modal_markers": 1,
+    "ability_lines": 7,
+    "keywords": 4,
+    "is_vanilla": false,
+    "base_type": "Creature",
+    "color_bucket": "M3",
+    "mana_value_band": "0-1",
+    "difficulty_score": 23.38
+   }
+  },
+  {
+   "oracle_id": "f451b8f0-1ff5-4e8d-9f30-9352d83ed687",
+   "name": "Den of the Bugbear",
+   "bucket": "hard",
+   "signals": {
+    "text_chars": 275,
+    "modal_markers": 1,
+    "ability_lines": 3,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Land",
+    "color_bucket": "R",
+    "mana_value_band": "0-1",
+    "difficulty_score": 14.0
+   }
+  },
+  {
+   "oracle_id": "bbfd0de0-3558-4833-bae4-8efae44b7fff",
+   "name": "Dreadwing Scavenger",
+   "bucket": "hard",
+   "signals": {
+    "text_chars": 198,
+    "modal_markers": 2,
+    "ability_lines": 3,
+    "keywords": 2,
+    "is_vanilla": false,
+    "base_type": "Creature",
+    "color_bucket": "M2",
+    "mana_value_band": "2-3",
+    "difficulty_score": 17.46
+   }
+  },
+  {
+   "oracle_id": "b7618312-6835-4851-9651-b5402001b3b0",
+   "name": "Swiftgear Drake",
+   "bucket": "hard",
+   "signals": {
+    "text_chars": 121,
+    "modal_markers": 1,
+    "ability_lines": 2,
+    "keywords": 2,
+    "is_vanilla": false,
+    "base_type": "Creature",
+    "color_bucket": "C",
+    "mana_value_band": "4-5",
+    "difficulty_score": 10.42
+   }
+  },
+  {
+   "oracle_id": "e73efb04-30ac-4484-b11b-e98f0353b9b6",
+   "name": "Sorcerer's Broom",
+   "bucket": "hard",
+   "signals": {
+    "text_chars": 116,
+    "modal_markers": 2,
+    "ability_lines": 1,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Creature",
+    "color_bucket": "C",
+    "mana_value_band": "2-3",
+    "difficulty_score": 11.82
+   }
+  },
+  {
+   "oracle_id": "5cf86603-cc47-4644-890a-0997c694817f",
+   "name": "Sivitri, Dragon Master",
+   "bucket": "hard",
+   "signals": {
+    "text_chars": 321,
+    "modal_markers": 2,
+    "ability_lines": 4,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Planeswalker",
+    "color_bucket": "M2",
+    "mana_value_band": "4-5",
+    "difficulty_score": 20.42
+   }
+  },
+  {
+   "oracle_id": "43a2bd01-3fce-4191-a08a-1e379c7770b0",
+   "name": "Rakdos Riteknife",
+   "bucket": "hard",
+   "signals": {
+    "text_chars": 286,
+    "modal_markers": 2,
+    "ability_lines": 3,
+    "keywords": 1,
+    "is_vanilla": false,
+    "base_type": "Artifact",
+    "color_bucket": "M2",
+    "mana_value_band": "2-3",
+    "difficulty_score": 18.72
+   }
+  },
+  {
+   "oracle_id": "068b370f-a358-4244-8050-6c81680c55c7",
+   "name": "Stocking the Pantry",
+   "bucket": "hard",
+   "signals": {
+    "text_chars": 177,
+    "modal_markers": 1,
+    "ability_lines": 2,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Enchantment",
+    "color_bucket": "G",
+    "mana_value_band": "0-1",
+    "difficulty_score": 10.54
+   }
+  },
+  {
+   "oracle_id": "45181cb8-2090-4471-ba90-e5a8f04d525f",
+   "name": "Sacred Foundry",
+   "bucket": "hard",
+   "signals": {
+    "text_chars": 72,
+    "modal_markers": 2,
+    "ability_lines": 2,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Land",
+    "color_bucket": "M2",
+    "mana_value_band": "0-1",
+    "difficulty_score": 12.44
+   }
+  },
+  {
+   "oracle_id": "94f01534-7bb3-4b1e-8f77-e84156408686",
+   "name": "Elvish Reclaimer",
+   "bucket": "hard",
+   "signals": {
+    "text_chars": 204,
+    "modal_markers": 1,
+    "ability_lines": 2,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Creature",
+    "color_bucket": "G",
+    "mana_value_band": "0-1",
+    "difficulty_score": 11.08
+   }
+  },
+  {
+   "oracle_id": "3c8d4999-e18b-48d8-8ed9-f2feaa38300d",
+   "name": "Merciless Eviction",
+   "bucket": "hard",
+   "signals": {
+    "text_chars": 111,
+    "modal_markers": 1,
+    "ability_lines": 5,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Sorcery",
+    "color_bucket": "M2",
+    "mana_value_band": "6+",
+    "difficulty_score": 13.72
+   }
+  },
+  {
+   "oracle_id": "b713e49f-1b13-42d1-91f2-cc7a579e7614",
+   "name": "Nihil Spellbomb",
+   "bucket": "hard",
+   "signals": {
+    "text_chars": 168,
+    "modal_markers": 1,
+    "ability_lines": 2,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Artifact",
+    "color_bucket": "B",
+    "mana_value_band": "0-1",
+    "difficulty_score": 10.36
+   }
+  },
+  {
+   "oracle_id": "22d0a848-2126-48f0-9050-38daaf93b1d0",
+   "name": "Agna Qel'a",
+   "bucket": "hard",
+   "signals": {
+    "text_chars": 117,
+    "modal_markers": 1,
+    "ability_lines": 3,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Land",
+    "color_bucket": "U",
+    "mana_value_band": "0-1",
+    "difficulty_score": 10.84
+   }
+  },
+  {
+   "oracle_id": "0b9bb0d7-4139-46b6-a058-2f79be64aef2",
+   "name": "Kitesail Cleric",
+   "bucket": "hard",
+   "signals": {
+    "text_chars": 97,
+    "modal_markers": 1,
+    "ability_lines": 3,
+    "keywords": 2,
+    "is_vanilla": false,
+    "base_type": "Creature",
+    "color_bucket": "W",
+    "mana_value_band": "0-1",
+    "difficulty_score": 11.44
+   }
+  },
+  {
+   "oracle_id": "c180f21b-f553-4839-80c7-a3ce2fae9b5a",
+   "name": "Hex Parasite",
+   "bucket": "hard",
+   "signals": {
+    "text_chars": 135,
+    "modal_markers": 2,
+    "ability_lines": 1,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Creature",
+    "color_bucket": "B",
+    "mana_value_band": "0-1",
+    "difficulty_score": 12.2
+   }
+  },
+  {
+   "oracle_id": "a81fd70c-c2bc-4863-97a0-facde86f024c",
+   "name": "March of Burgeoning Life",
+   "bucket": "hard",
+   "signals": {
+    "text_chars": 341,
+    "modal_markers": 3,
+    "ability_lines": 2,
+    "keywords": 0,
+    "is_vanilla": false,
+    "base_type": "Instant",
+    "color_bucket": "G",
+    "mana_value_band": "0-1",
+    "difficulty_score": 21.82
+   }
+  },
+  {
+   "oracle_id": "43daed96-2216-4f17-82ce-3eccd5d69936",
+   "name": "Elven Bow",
+   "bucket": "hard",
+   "signals": {
+    "text_chars": 190,
+    "modal_markers": 1,
+    "ability_lines": 3,
+    "keywords": 1,
+    "is_vanilla": false,
+    "base_type": "Artifact",
+    "color_bucket": "G",
+    "mana_value_band": "0-1",
+    "difficulty_score": 12.8
+   }
+  },
+  {
+   "oracle_id": "e6637f9f-8293-43a5-a134-93799a016ecb",
+   "name": "Secret Identity",
+   "bucket": "hard",
+   "signals": {
+    "text_chars": 282,
+    "modal_markers": 1,
+    "ability_lines": 3,
+    "keywords": 1,
+    "is_vanilla": false,
+    "base_type": "Instant",
+    "color_bucket": "U",
+    "mana_value_band": "0-1",
+    "difficulty_score": 14.64
+   }
+  }
+ ]
+}

@@ -52,6 +52,29 @@ chroma_db/
 # Hugging Face sentence-transformer weights, if cached in-repo.
 .cache/
 models/
+# The metadata benchmark's run log and 300-card sample are the one exception
+# to the *.db rule above and are tracked on purpose, not rebuilt blind: the
+# sample is small, human-reviewed, and meant to be argued with in a diff
+# (`knowledge_pipeline/benchmark/sample.py`), and the run log is the actual
+# measured evidence a benchmark conclusion rests on -- losing it to a
+# gitignore rule would hide the evidence, not just discard a rebuildable
+# cache. `sample.json` needs no exception here: nothing above ignores *.json.
+!backend/knowledge_pipeline/benchmark/benchmark.db
+# The store has no migration path by design, so a schema bump retires the file
+# rather than upgrading it. The retired one is kept for the same reason the
+# live one is tracked -- it holds the only copy of what S-001 to S-003
+# measured, and re-deriving it is impossible now that the harness makes
+# production's two calls instead of one. Reading it needs the version-2 code
+# from git history; what those sessions *established* is written into
+# docs/benchmarking-and-testing.md and docs/lessons-learned.md.
+!backend/knowledge_pipeline/benchmark/benchmark-v2-sessions-001-003.db
+# The rendered report is not evidence, it is a view of it: 1.2 MB of HTML
+# regenerable from benchmark.db by `benchmark report --html`. Tracking the
+# store and not its rendering is the whole point of the exception above.
+backend/knowledge_pipeline/benchmark/benchmark-report.html
+# The archived contended-VRAM run, kept locally while diagnosing the 14B's
+# memory spill. Not evidence for a conclusion -- delete it when done.
+backend/knowledge_pipeline/benchmark/benchmark-contended.db
 
 # ---------- Claude Code ----------
 # settings.json is shared; settings.local.json is per-machine.
